@@ -23,5 +23,5 @@ makedocs(
 )
 
 deploydocs(
-    repo = "github.com/StanfordMSL/RATiLQR.jl"
+    repo = "github.com/StanfordMSL/RATiLQR.jl.git"
 )
