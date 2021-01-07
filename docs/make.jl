@@ -4,12 +4,12 @@ using RATiLQR
 format =
 Documenter.HTML(
     prettyurls = get(ENV, "CI", nothing) == "true",
-    authors = "Haruki Nishimura"
 )
 
 makedocs(
     format = format,
     sitename = "RATiLQR.jl",
+    authors = "Haruki Nishimura"
     source = "source",
     build = "build",
     clean = true,
