@@ -34,7 +34,7 @@ A brief overview is provided in our Youtube video:
 Support
 -------
 
-Report bugs or request help by opening issues on [the GitHub Issue Page](https://github.com/StanfordMSL/RATiLQR.jl/issues).
+Report bugs or request help by opening issues on [the GitHub Issues Page](https://github.com/StanfordMSL/RATiLQR.jl/issues).
 
 License
 -------
