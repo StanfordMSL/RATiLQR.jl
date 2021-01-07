@@ -12,7 +12,63 @@ using Distributed
 
 
 """
-RATiLQR Solver
+    CrossEntropyBilevelOptimizationSolver(kwargs...)
+
+RAT iLQR (i.e. Cross Entropy Method + iLEQG) Solver.
+
+# Optional Keyword Arguments
+## iLEQG Solver Parameters
+- `μ_min_ileqg::Float64` -- minimum value for Hessian regularization parameter `μ` (> 0).
+  Default: `1e-6`.
+- `Δ_0_ileqg::Float64` -- minimum multiplicative modification factor (> 0) for `μ`.
+  Default: `2.0`.
+- `λ_ileqg::Float64` -- multiplicative modification factor in (0, 1) for line search
+  step size `ϵ`. Default: `0.5`.
+- `d_ileqg::Float64` -- convergence error norm threshold (> 0). If the maximum l2
+  norm of the change in nominal control over the horizon is less than `d`, the
+  solver is considered to be converged. Default: `1e-2`.
+- `iter_max_ileqg::Int64` -- maximum iteration number. Default: 100
+- `β_ileqg::Float64` -- Armijo condition number (>= 0) defining a sufficient decrease
+  for backtracking line search. If `β == 0`, then any cost-to-go improvement is
+  considered a sufficient decrease. Default: `1e-4`.
+- `ϵ_init_ileqg::Float64` -- initial step size in (`ϵ_min`, 1] to start the
+  backtracking line search with. If `adaptive_ϵ_init` is `true`, then this
+  value is overridden by the solver's adaptive initialization functionality
+  after the first iLEQG iteration. If `adaptive_ϵ_init` is `false`, the
+  specified value of `ϵ_init` is used across all the iterations as the initial
+  step size. Default:`1.0`.
+- `adaptive_ϵ_init_ileqg::Bool` -- if `true`, `ϵ_init` is adaptively changed based on
+  the last step size `ϵ` of the previous iLEQG iteration. Default: `false`.
+   - If the first line search iterate `ϵ_init_prev` in the previous iLEQG
+     iteration is successful, then `ϵ_init` for the next iLEQG iteration is set
+     to `ϵ_init = ϵ_init_prev / λ` so that the initial line search step increases.
+   - Otherwise `ϵ_init = ϵ_last` where `ϵ_last` is the line search step accepted
+     in the previous iLEQG iteration.
+- `ϵ_min_ileqg::Float64` -- minimum value of step size `ϵ` to terminate the line
+  search. When `ϵ_min` is reached, the last candidate nominal trajectory is accepted
+  regardless of the Armijo condition and the current iLEQG iteration is
+  finished. Default: `1e-6`.
+- `f_returns_jacobian::Bool` -- if `true`, Jacobian matrices of the dynamics function
+  are user-provided. This can reduce computation time since automatic
+  differentiation is not used. Default: `false`.
+
+## Cross Entropy Solver Parameters
+- `μ_init::Float64` -- initial value of the mean parameter `μ` used in the first
+  Cross Entropy iteration. Default: `1.0`.
+- `σ_init::Float64` -- initial value of the standard deviation parameter `σ`
+  used in the first Cross Entropy iteration. Default: `2.0`.
+- `num_samples::Int64` -- number of Monte Carlo samples for the risk-sensitivity
+  parameter `θ`. Default: `10`.
+- `num_elite::Int64` -- number of elite samples. Default: `3`.
+- `iter_max::Int64` -- maximum iteration number. Default: `5`.
+- `λ::Float64` -- multiplicative modification factor in (0, 1) for ``μ_init` and
+  `σ_init`. Default: `0.5`.
+- `use_θ_max::Bool` -- if `true`, the maximum feasible `θ` found is used to
+  perform the final iLEQG optimization instead of the optimal one. Default: `false`.
+
+# Notes
+- The values of `μ_init` and `σ_init`, which may be modified during optimization,
+  are stored internally in the solver and　carried over to the next call to `solve!`.
 """
 mutable struct CrossEntropyBilevelOptimizationSolver
     # ileqg solver parameters
@@ -283,7 +339,30 @@ end
 
 
 """
-Solve RATiLQR
+    solve!(ce_solver::CrossEntropyBilevelOptimizationSolver,
+    problem::FiniteHorizonRiskSensitiveOptimalControlProblem,
+    x_0::Vector{Float64}, u_array::Vector{Vector{Float64}}, rng::AbstractRNG;
+    kl_bound::Float64, verbose=true, serial=false)
+
+Given `problem` and `ce_solver` (i.e. a RAT iLQR Solver), solve distributionally robust
+control with current state `x_0` and nominal control schedule `u_array = [u_0, ..., u_{N-1}]`
+under the KL divergence bound of `kl_bound` (>= 0).
+
+# Return Values (Ordered)
+- `θ_opt::Float64` -- optimal risk-sensitivity parameter.
+- `x_array::Vector{Vector{Float64}}` -- nominal state trajectory `[x_0,...,x_N]`.
+- `l_array::Vector{Vector{Float64}}` -- nominal control schedule `[l_0,...,l_{N-1}]`.
+- `L_array::Vector{Matrix{Float64}}` -- feedback gain schedule `[L_0,...,L_{N-1}]`.
+- `value::Float64` -- optimal cost-to-go (i.e. objective value) found by the solver.
+- `θ_min::Float64` -- minimum feasible risk-sensitivity parameter found.
+- `θ_max::Float64` -- maximum feasible risk-sensitivity parameter found.
+
+# Notes
+- Returns a time-varying affine state-feedback policy `π_k` of the form
+  `π_k(x) = L_k(x - x_k) + l_k`.
+- If `kl_bound` is 0.0, the solver reduces to iLQG.
+- If `serial` is `true`, Monte Carlo sampling of the Cross Entropy method is serialized
+  on a single process. If `false` it is distributed on all the available worker processes.
 """
 function solve!(ce_solver::CrossEntropyBilevelOptimizationSolver,
                 problem::FiniteHorizonRiskSensitiveOptimalControlProblem,

@@ -9,7 +9,67 @@ using Printf
 
 
 """
-Nelder-Mead Simplex Bilevel Optimization Solver
+    NelderMeadBilevelOptimizationSolver(kwargs...)
+
+RAT iLQR++ (i.e. Nelder-Mead Simplex Method + iLEQG) Solver.
+
+# Optional Keyword Arguments
+## iLEQG Solver Parameters
+- `μ_min_ileqg::Float64` -- minimum value for Hessian regularization parameter `μ` (> 0).
+  Default: `1e-6`.
+- `Δ_0_ileqg::Float64` -- minimum multiplicative modification factor (> 0) for `μ`.
+  Default: `2.0`.
+- `λ_ileqg::Float64` -- multiplicative modification factor in (0, 1) for line search
+  step size `ϵ`. Default: `0.5`.
+- `d_ileqg::Float64` -- convergence error norm threshold (> 0). If the maximum l2
+  norm of the change in nominal control over the horizon is less than `d`, the
+  solver is considered to be converged. Default: `1e-2`.
+- `iter_max_ileqg::Int64` -- maximum iteration number. Default: 100.
+- `β_ileqg::Float64` -- Armijo condition number (>= 0) defining a sufficient decrease
+  for backtracking line search. If `β == 0`, then any cost-to-go improvement is
+  considered a sufficient decrease. Default: `1e-4`.
+- `ϵ_init_ileqg::Float64` -- initial step size in (`ϵ_min`, 1] to start the
+  backtracking line search with. If `adaptive_ϵ_init` is `true`, then this
+  value is overridden by the solver's adaptive initialization functionality
+  after the first iLEQG iteration. If `adaptive_ϵ_init` is `false`, the
+  specified value of `ϵ_init` is used across all the iterations as the initial
+  step size. Default:`1.0`.
+- `adaptive_ϵ_init_ileqg::Bool` -- if `true`, `ϵ_init` is adaptively changed based on
+  the last step size `ϵ` of the previous iLEQG iteration. Default: `false`.
+   - If the first line search iterate `ϵ_init_prev` in the previous iLEQG
+     iteration is successful, then `ϵ_init` for the next iLEQG iteration is set
+     to `ϵ_init = ϵ_init_prev / λ` so that the initial line search step increases.
+   - Otherwise `ϵ_init = ϵ_last` where `ϵ_last` is the line search step accepted
+     in the previous iLEQG iteration.
+- `ϵ_min_ileqg::Float64` -- minimum value of step size `ϵ` to terminate the line
+  search. When `ϵ_min` is reached, the last candidate nominal trajectory is accepted
+  regardless of the Armijo condition and the current iLEQG iteration is
+  finished. Default: `1e-6`.
+- `f_returns_jacobian::Bool` -- if `true`, Jacobian matrices of the dynamics function
+  are user-provided. This can reduce computation time since automatic
+  differentiation is not used. Default: `false`.
+
+## Nelder-Mead Simplex Solver Parameters
+- `α::Float64` -- reflection parameter. Default: `1.0`.
+- `β::Float64` -- expansion parameter. Default: `2.0`.
+- `γ::Float64` -- contraction parameter. Default: `0.5`.
+- `ϵ::Float64` -- convergence parameter. The algorithm is said to have convergeced
+   if the standard deviation of the objective values at the vertices of the simplex
+   is below `ϵ`. Default: `1e-2`.
+- `λ::Float64` -- multiplicative modification factor in (0, 1) for `θ_high_init` and
+  `θ_low_init`, which is repeatedly applied in case the objective value is infinity
+  until a feasible region is find. Default: `0.5`.
+- `θ_high_init::Float64` -- Initial guess for `θ_high`. Default: `3.0`.
+- `θ_low_init::Float64` -- Initial guess for `θ_low`. Default: `1e-8`.
+- `iter_max::Int64` -- maximum iteration number. Default: `100`.
+
+# Notes
+- The Nelder-Mead Simplex method maintains a 1D simplex (i.e. a line segment that
+  consists of 2 points, `θ_high` and `θ_low`) to search for the optimal risk-sensitivity
+  parameter `θ`. `θ_high` and `θ_low` refer to the verteces of the simplex with the highest
+  and the lowest objective values, respectively.
+- The initial guesses `θ_high_init` and `θ_low_init`, which may be modified during optimization,
+  are stored internally in the solver and carried over to the next call to `solve!`.
 """
 mutable struct NelderMeadBilevelOptimizationSolver
     # ileqg solver parameters
@@ -196,7 +256,25 @@ end
 
 
 """
-Solve NelderMeadBilevelOptimization
+    solve!(nm_solver::NelderMeadBilevelOptimizationSolver,
+    problem::FiniteHorizonRiskSensitiveOptimalControlProblem, x_0::Vector{Float64},
+    u_array::Vector{Vector{Float64}}; kl_bound::Float64, verbose=true)
+
+Given `problem` and `nm_solver` (i.e. a RAT iLQR++ Solver), solve distributionally robust
+control with current state `x_0` and nominal control schedule `u_array = [u_0, ..., u_{N-1}]`
+under the KL divergence bound of `kl_bound` (>= 0).
+
+# Return Values (Ordered)
+- `θ_opt::Float64` -- optimal risk-sensitivity parameter.
+- `x_array::Vector{Vector{Float64}}` -- nominal state trajectory `[x_0,...,x_N]`.
+- `l_array::Vector{Vector{Float64}}` -- nominal control schedule `[l_0,...,l_{N-1}]`.
+- `L_array::Vector{Matrix{Float64}}` -- feedback gain schedule `[L_0,...,L_{N-1}]`.
+- `value::Float64` -- optimal cost-to-go (i.e. objective value) found by the solver.
+
+# Notes
+- Returns a time-varying affine state-feedback policy `π_k` of the form
+  `π_k(x) = L_k(x - x_k) + l_k`.
+- If `kl_bound` is 0.0, the solver reduces to iLQG.
 """
 function solve!(nm_solver::NelderMeadBilevelOptimizationSolver,
                 problem::FiniteHorizonRiskSensitiveOptimalControlProblem,

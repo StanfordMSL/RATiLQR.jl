@@ -11,7 +11,27 @@ using LinearAlgebra
 
 using Distributed
 import Future.randjump
+"""
+    CrossEntropyDirectOptimizationSolver(μ_init_array::Vector{Vector{Float64}},
+    Σ_init_array::Vector{Matrix{Float64}}; kwargs...)
 
+PETS Solver initialized with `μ_init_array = [μ_0,...,μ_{N-1}]` and
+`Σ_init_array = [Σ_0,...,Σ_{N-1}]`, where the initial control distribution at time
+`k` is a Gaussian distribution `Distributions.MvNormal(μ_k, Σ_k)`.
+
+# Optional Keyword Arguments
+- `num_control_samples::Int64` -- number of Monte Carlo samples for the control
+  trajectory. Default: `10`.
+- `num_trajectory_samples::Int64` -- number of Monte Carlo samples for the state
+  trajectory. Default: `10`.
+- `num_elite::Int64` -- number of elite samples. Default: `3`.
+- `iter_max::Int64` -- maximum iteration number. Default: `5`.
+- `smoothing_factor::Float64` -- smoothing factor in (0, 1), used to update the
+  mean and the variance of the Cross Entropy distribution for the next iteration.
+  If `smoothing_factor` is `0.0`, the updated distribution is independent of the
+  previous iteration. If it is `1.0`, the updated distribution is the same as the
+  previous iteration. Default. `0.1`.
+"""
 mutable struct CrossEntropyDirectOptimizationSolver # a.k.a. "PETS"
     # CE solver parameters
     num_control_samples::Int64
@@ -224,7 +244,29 @@ function step!(direct_solver::CrossEntropyDirectOptimizationSolver,
     direct_solver.Σ_array = Σ_new_array;
 end;
 
+"""
+    solve!(direct_solver::CrossEntropyDirectOptimizationSolver,
+    problem::FiniteHorizonGenerativeOptimalControlProblem, x_0::Vector{Float64},
+    rng::AbstractRNG; use_true_model=false, verbose=true, serial=true)
 
+Given `problem` and `direct_solver` (i.e. a PETS Solver), solve stochastic optimal
+control with current state `x_0`.
+
+# Return Values (Ordered)
+- `μ_array::Vector{Vector{Float64}}` -- array of means `[μ_0,...,μ_{N-1}]` for
+  the final Cross Entropy distribution for the control schedule.
+- `Σ_array::Vector{Matrix{Float64}}` -- array of covariance matrices `[Σ_0,...,Σ_{N-1}]`
+  for the final Cross Entropy distribution for the control schedule.
+
+# Notes
+- Returns an open-loop control policy.
+- If `use_true_model` is `true`, the solver uses the true stochastic dynamics model
+  defined in `problem.f_stochastic`.
+- If `serial` is `true`, Monte Carlo sampling of the Cross Entropy method is serialized
+  on a single process. If `false` it is distributed on all the available worker processes.
+  We recommend to leave this to `true` as distributed processing can be slower for
+  this algorithm.
+"""
 function solve!(direct_solver::CrossEntropyDirectOptimizationSolver,
                 problem::FiniteHorizonGenerativeOptimalControlProblem,
                 x_0::Vector{Float64},
