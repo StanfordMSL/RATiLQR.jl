@@ -30,7 +30,7 @@ using Test
 
     # integrate_cost test
     cost = integrate_cost(prob, x_array, u_array)
-    @test cost ≈ sum([c(ii, x_array[ii], u_array[ii]) for ii = 1 : prob.N]) + h(x_array[end])
+    @test cost ≈ sum([c(ii - 1, x_array[ii], u_array[ii]) for ii = 1 : prob.N]) + h(x_array[end])
 
     # initialize test
     solver = ILEQGSolver(prob);
