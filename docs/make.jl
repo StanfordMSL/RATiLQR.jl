@@ -9,7 +9,7 @@ Documenter.HTML(
 makedocs(
     format = format,
     sitename = "RATiLQR.jl",
-    authors = "Haruki Nishimura"
+    authors = "Haruki Nishimura",
     source = "source",
     build = "build",
     clean = true,
