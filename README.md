@@ -31,6 +31,8 @@ A brief overview is provided in our Youtube video:
 
 [![RAT iLQR Overview](docs/source/assets/youtube_screenshot.png)](http://www.youtube.com/watch?v=y90HftYTGjc "RAT iLQR Overview")
 
-# Documentation
+Documentation
+-------------
+
 For more details, please read [the official documentation][docs-dev-url].
 
