@@ -19,7 +19,7 @@ the following objective:
 
 ```math
 \max_{p \in \Xi} \mathbb{E}_p \left[\frac{1}{2} \sum_{k=0}^{N - 1} \left(x_k^{\mathrm{T}}Qx_k + u_k^{\mathrm{T}}R u_k\right) +
-\frac{1}{2}x_N^{\mathrm{T}}Rx_N\right]
+\frac{1}{2}x_N^{\mathrm{T}}Qx_N\right]
 ```
 ```math
 \text{subject to } x_{k+1} = x_k + 0.1 \times u_k + w_k \in \mathbb{R}^2, ~~ (w_0,...,w_{N-1}) \sim p(w_{0:N-1}),
