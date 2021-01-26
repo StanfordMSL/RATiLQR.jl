@@ -464,7 +464,7 @@ function line_search!(ileqg::ILEQGSolver, problem::FiniteHorizonRiskSensitiveOpt
         deriv_str = @sprintf "%3.3f" dir_deriv;
         println("----Directional derivative: $(deriv_str)")
     end
-    @assert dir_deriv <= 0.0
+    #@assert dir_deriv <= 0.0
     ϵ = ileqg.ϵ_init
     value_new = Inf;
     count = 0;
