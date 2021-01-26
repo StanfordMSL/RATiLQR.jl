@@ -169,7 +169,6 @@ mutable struct ILEQGSolver
     λ::Float64       # Multiplicative factor for line search step parameter
     d::Float64       # Convergence error norm thresholds
     iter_max::Int64  # Maximum iteration
-    # β::Float64       # Armijo search condition
     ϵ_init_auto::Bool # Automatic initialization of ϵ_init from the previous iLEQG iteration.
     ϵ_init::Float64  # Initial step size for backtracking line search
     ϵ_min::Float64   # Minimum step size for backtracking line search
@@ -182,6 +181,7 @@ mutable struct ILEQGSolver
     A_array::Union{Nothing, Vector{Matrix{Float64}}} # Sequence of Jacobians [dx_1/dx_0, ..., dx_{T}/dx_{T-1}]
     B_array::Union{Nothing, Vector{Matrix{Float64}}} # Sequence of Jacobians [dx_1/du_0, ..., dx_{T}/du_0]
 
+    value_current::Float64 # current value (cost-to-go)
     iter_current::Int64 # current iteration number
     d_current::Float64  # current error norm
     ϵ_history::Array{Tuple{Float64, Float64}} # Array of (ϵ, -value_improvement)
@@ -196,7 +196,6 @@ function ILEQGSolver(problem::FiniteHorizonRiskSensitiveOptimalControlProblem;
     @assert d > 0 "d > 0 is necessary"
     @assert μ_min > 0 "μ_min > 0 is necessary"
     @assert Δ_0 > 0 "Δ_0 > 0 is necessary"
-    # @assert β >= 0 "β >= 0 is necessary"
     @assert 0 < ϵ_init <= 1 "ϵ_init has to be in (0, 1]"
     @assert ϵ_init > ϵ_min "ϵ_init > ϵ_min is necessary"
     @assert 0 < ϵ_min < 1 "ϵ_min has to be in (0, 1)"
@@ -205,7 +204,7 @@ function ILEQGSolver(problem::FiniteHorizonRiskSensitiveOptimalControlProblem;
     l_array = Vector{Vector{Float64}}(undef, problem.N)
     L_array = Vector{Matrix{Float64}}(undef, problem.N)
     return ILEQGSolver(μ_min, μ_min, Δ_0, Δ_0, λ, d, iter_max, adaptive_ϵ_init, ϵ_init, ϵ_min, f_returns_jacobian,
-                       x_array, l_array, L_array, nothing, nothing, 0, Inf, Tuple{Float64, Float64}[], ϵ_init)
+                       x_array, l_array, L_array, nothing, nothing, Inf, 0, Inf, Tuple{Float64, Float64}[], ϵ_init)
 end;
 
 
@@ -213,8 +212,7 @@ end;
 Initialize iLEQG solver
 """
 function initialize!(ileqg::ILEQGSolver, problem::FiniteHorizonRiskSensitiveOptimalControlProblem,
-                     x_0::Vector{Float64}, u_array::Vector{Vector{Float64}})
-    #ileqg.μ, ileqg.Δ = ileqg.μ_min, ileqg.Δ_0;
+                     x_0::Vector{Float64}, u_array::Vector{Vector{Float64}}, θ::Float64)
     ileqg.μ, ileqg.Δ = 0.0, ileqg.Δ_0;
     ileqg.d_current = Inf;
     ileqg.iter_current = 0;
@@ -229,9 +227,12 @@ function initialize!(ileqg::ILEQGSolver, problem::FiniteHorizonRiskSensitiveOpti
     end
     ileqg.l_array = copy(u_array);
     x_dim, u_dim = length(ileqg.x_array[1]), length(ileqg.l_array[1])
-    #=for ii = 1 : problem.N
+    for ii = 1 : problem.N
         ileqg.L_array[ii] = zeros(u_dim, x_dim)
-    end=#
+    end
+    approx_result = approximate_model(problem, ileqg.l_array, ileqg.x_array);
+    dp_result = solve_approximate_dp(approx_result, ileqg.L_array, θ=θ, μ=ileqg.μ);
+    ileqg.value_current = dp_result.s_array[1];
 end
 
 
@@ -338,7 +339,7 @@ Compute approximate dynamic programming solution using Riccati(-like) recursiong
 risk-sensitivity θ, while optimizing the policy parameters L_array and dl_array.
 """
 function solve_approximate_dp!(ileqg::ILEQGSolver, approx_result::ApproximationResult,
-                              verbose::Bool; θ::Float64)
+                               verbose::Bool; θ::Float64)
     N = length(approx_result.W_array);
     s_array = Vector{Float64}(undef, N + 1)
     s_vec_array = Vector{Vector{Float64}}(undef, N + 1)
@@ -407,7 +408,7 @@ Compute approximate dynamic programming solution using Riccati(-like) recursion 
 function solve_approximate_dp(approx_result::ApproximationResult,
                               L_array::Vector{Matrix{Float64}},
                               dl_array::Union{Nothing, Vector{Vector{Float64}}}=nothing;
-                              θ::Float64)# μ::Float64)#::Union{Nothing, DynamicProgrammingResult}
+                              θ::Float64, μ::Float64)
     N = length(approx_result.W_array);
     @assert N == length(L_array)
     if !isnothing(dl_array)
@@ -431,22 +432,19 @@ function solve_approximate_dp(approx_result::ApproximationResult,
         @inbounds r, R, P = approx_result.r_array[ii], approx_result.R_array[ii], approx_result.P_array[ii];
         @inbounds A, B = approx_result.A_array[ii], approx_result.B_array[ii];
         @inbounds W = approx_result.W_array[ii];
-        if isnothing(dl_array)
-            @inbounds dl = zeros(size(L_array[ii], 1))
-        else
-            @inbounds dl = dl_array[ii];
-        end
-        @inbounds L = L_array[ii]
         @inbounds M = Symmetric(inv(W) - θ.*S_array[ii + 1]);
         @assert isposdef(M) "M = $(M): (inv(W_{ii}) - θ*S_{ii + 1}) is not PSD at ii = $(ii)"
         @inbounds D = Matrix(1.0I, size(W)) + θ.*S_array[ii + 1]/M
         @inbounds g_array[ii] = r + B'*D*s_vec_array[ii + 1];
-        @inbounds G_array[ii] = P + B'*(D*S_array[ii + 1])*A;# + μ.*Matrix(1.0I, size(W)))*A;
-        @inbounds H_array[ii] = R + B'*(D*S_array[ii + 1])*B # + μ.*Matrix(1.0I, size(R));# + μ.*Matrix(1.0I, size(W)))*B;
+        @inbounds G_array[ii] = P + B'*(D*S_array[ii + 1])*A;
+        @inbounds H_array[ii] = R + B'*(D*S_array[ii + 1])*B + μ*Matrix(1.0I, size(R));
         @inbounds H_array[ii] = Symmetric(H_array[ii])
-        #=if require_psd && !isposdef(H_array[ii])
-            return nothing
-        end=#
+        @inbounds L = L_array[ii];
+        if isnothing(dl_array)
+            dl = zeros(size(L, 1))
+        else
+            @inbounds dl = dl_array[ii];
+        end
         @inbounds s_array[ii] = q + s_array[ii + 1] + 0.5*dl'*H_array[ii]*dl + dl'*g_array[ii];
         if θ == 0.0 # iLQG
             @inbounds s_array[ii] += 0.5*tr(W*S_array[ii + 1])
@@ -485,60 +483,19 @@ function decrease_μ_and_Δ!(ileqg::ILEQGSolver)
     end
 end;
 
-#=
-"""
-Make sure control Hessians are all PSD by regularizing the matrices.
-"""
-function regularize!(ileqg::ILEQGSolver, dp_result::DynamicProgrammingResult, verbose=true)
-    while true
-        H_array = copy(dp_result.H_array)
-        for ii = 1 : length(H_array)
-            H_array[ii] += ileqg.μ*Matrix(1.0I, size(H_array[ii]));
-        end
-        if all(isposdef.(H_array))
-            for ii = 1 : length(H_array)
-                dp_result.H_array[ii] = H_array[ii];
-            end
-            break;
-        else
-            increase_μ_and_Δ!(ileqg)
-            if verbose
-                println("------Increasing μ to $(ileqg.μ) and Δ to $(ileqg.Δ)")
-            end
-        end
-    end
-    decrease_μ_and_Δ!(ileqg)
-    if verbose
-        println("------Approximate dynamic programming solved. Decreasing μ to $(ileqg.μ) and Δ to $(ileqg.Δ)")
-    end
-    return dp_result
-end=#
-
 
 """
 Perform Backtracking Line Search
 """
 function line_search!(ileqg::ILEQGSolver, problem::FiniteHorizonRiskSensitiveOptimalControlProblem,
-                      dp_result::DynamicProgrammingResult,
                       dl_array_new::Vector{Vector{Float64}}, θ::Float64, verbose=true)
 
-    expected_cost_current = dp_result.s_array[1];
+    expected_cost_current = ileqg.value_current;
     if verbose
         cost_str = @sprintf "%3.3f" expected_cost_current
         println("----Current expected cost: $(cost_str)")
     end
-    #=dir_deriv = 0.0
-    for ii = 1 : length(dp_result.H_array)
-        dir_deriv += ileqg.l_array[ii]'*dp_result.H_array[ii]*dl_array_new[ii]
-                   + dl_array_new[ii]'*dp_result.g_array[ii]
-    end
-    if verbose
-        deriv_str = @sprintf "%3.3f" dir_deriv;
-        println("----Directional derivative: $(deriv_str)")
-    end
-    @assert dir_deriv <= 0.0=#
     ϵ = ileqg.ϵ_init
-    value_new = Inf;
     count = 0;
     while true
         count += 1;
@@ -558,12 +515,10 @@ function line_search!(ileqg::ILEQGSolver, problem::FiniteHorizonRiskSensitiveOpt
                                                          f_returns_jacobian=false)
             approx_result_new = approximate_model(problem, u_array_new, x_array_new);
         end
-        #=dp_result_new = solve_approximate_dp(approx_result_new, u_array_new, ileqg.L_array,
-                                             θ=θ, μ=ileqg.μ, require_psd=false);=#
         dp_result_new =
         #try
             solve_approximate_dp(approx_result_new, ileqg.L_array,
-                                 θ=θ)#, μ=ileqg.μ)
+                                 θ=θ, μ=ileqg.μ)
         #=catch e
             nothing;
         end
@@ -575,17 +530,15 @@ function line_search!(ileqg::ILEQGSolver, problem::FiniteHorizonRiskSensitiveOpt
             continue;
         end=#
         expected_cost_new = dp_result_new.s_array[1];
-        value_new = expected_cost_new;
-        # Armijo condition
-        #push!(ileqg.ϵ_history, (ϵ, expected_cost_new - (expected_cost_current + ileqg.β*ϵ*dir_deriv)))
         push!(ileqg.ϵ_history, (ϵ, expected_cost_new - expected_cost_current));
-        if expected_cost_new ≈ expected_cost_current || expected_cost_new < expected_cost_current #+ ileqg.β*ϵ*dir_deriv
+        if expected_cost_new ≈ expected_cost_current || expected_cost_new < expected_cost_current
             ileqg.d_current = maximum(norm.(ileqg.l_array .- u_array_new));
             if verbose
                 cost_str = @sprintf "%3.3f" expected_cost_new;
                 err_norm_str = @sprintf "%3.3f" ileqg.d_current
                 println("------Accepted. New expected cost: $(cost_str). d == $(err_norm_str)")
             end
+            ileqg.value_current = expected_cost_new;
             ileqg.x_array = x_array_new;
             ileqg.l_array = u_array_new;
             if ileqg.f_returns_jacobian
@@ -605,6 +558,7 @@ function line_search!(ileqg::ILEQGSolver, problem::FiniteHorizonRiskSensitiveOpt
                     err_norm_str = @sprintf "%3.3f" ileqg.d_current
                     println("------New expected cost: $(cost_str). Terminating as ϵ_min reached. d == $(err_norm_str)")
                 end
+                ileqg.value_current = expected_cost_new;
                 ileqg.x_array = x_array_new;
                 ileqg.l_array = u_array_new;
                 if ileqg.f_returns_jacobian
@@ -631,7 +585,6 @@ function line_search!(ileqg::ILEQGSolver, problem::FiniteHorizonRiskSensitiveOpt
             ileqg.ϵ_init = ϵ
         end
     end
-    return value_new
 end
 
 
@@ -650,11 +603,9 @@ function step!(ileqg::ILEQGSolver, problem::FiniteHorizonRiskSensitiveOptimalCon
     if verbose
         println("----Solving approximate dynamic programming")
     end
-    dp_result, dl_array =
+    ~, dl_array =
         solve_approximate_dp!(ileqg, approx_result, verbose, θ=θ);
-    #dp_result = regularize!(ileqg, dp_result, verbose);
-    value_new = line_search!(ileqg, problem, dp_result, dl_array, θ, verbose);
-    return value_new
+    line_search!(ileqg, problem, dl_array, θ, verbose);
 end
 
 
@@ -681,10 +632,9 @@ function solve!(ileqg::ILEQGSolver,
                 problem::FiniteHorizonRiskSensitiveOptimalControlProblem,
                 x_0::Vector{Float64}, u_array::Vector{Vector{Float64}};
                 θ::Float64, verbose=true)
-    initialize!(ileqg, problem, x_0, u_array);
-    value = Inf;
+    initialize!(ileqg, problem, x_0, u_array, θ);
     while true
-        value = step!(ileqg, problem, θ, verbose);
+        step!(ileqg, problem, θ, verbose);
         if ileqg.d > ileqg.d_current && ileqg.μ <= ileqg.μ_min
             if verbose
                 err_norm_str = @sprintf "%3.3f" ileqg.d_current
@@ -700,5 +650,6 @@ function solve!(ileqg::ILEQGSolver,
     end
     x_array, l_array, L_array = copy(ileqg.x_array), copy(ileqg.l_array), copy(ileqg.L_array)
     ϵ_history = copy(ileqg.ϵ_history)
+    value = ileqg.value_current;
     return x_array, l_array, L_array, value, ϵ_history
 end

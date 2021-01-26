@@ -34,15 +34,20 @@ using Test
 
     # initialize test
     solver = ILEQGSolver(prob);
-    initialize!(solver, prob, zeros(2), u_array)
+    initialize!(solver, prob, zeros(2), u_array, 0.0);
     @test solver.l_array == u_array
-    #@test solver.L_array == [zeros(2, 2) for ii = 1 : prob.N]
+    @test solver.L_array == [zeros(2, 2) for ii = 1 : prob.N]
     @test solver.x_array == x_array
     @test solver.μ == 0.0
     @test solver.Δ == solver.Δ_0
     @test solver.d_current == Inf
     @test solver.iter_current == 0;
     @test solver.ϵ_history == Tuple{Float64, Float64}[]
+    dp_result_init = solve_approximate_dp(
+                    approximate_model(prob, u_array, x_array),
+                    [zeros(2, 2) for ii = 1 : N], θ=0.0, μ=0.0);
+    @test solver.value_current ≈ dp_result_init.s_array[1];
+
 
     # approximate_model test
     prob.c(k, x, u) = 0.5*x'*x + 1.0*u'*u + x'*u
@@ -121,23 +126,23 @@ using Test
 
     solve_approximate_dp!(solver, approx_result, false, θ=0.0);
 
-    dp_result_3 = solve_approximate_dp(approx_result, solver.L_array, dl_array_new, θ=0.0);
+    dp_result_3 = solve_approximate_dp(approx_result, solver.L_array, dl_array_new, θ=0.0, μ=0.0);
     @test dp_result_3.s_array == dp_result.s_array
 
     # line search test (for linear system)
-    value_new = line_search!(solver, prob, dp_result, dl_array_new, 0.0, false)
-    @test value_new .≈ dp_result.s_array[1] # line search should find the same optimal solution
+    line_search!(solver, prob, dl_array_new, 0.0, false)
+    @test solver.value_current .≈ dp_result.s_array[1] # line search should find the same optimal solution
 
     # increase_μ_and_Δ test
     solver = ILEQGSolver(prob);
-    initialize!(solver, prob, zeros(2), u_array)
+    initialize!(solver, prob, zeros(2), u_array, 0.0)
     increase_μ_and_Δ!(solver);
     @test solver.Δ == 4.0
     @test solver.μ == 1e-6
 
     # decrease_μ_and_Δ test
     solver = ILEQGSolver(prob);
-    initialize!(solver, prob, zeros(2), u_array)
+    initialize!(solver, prob, zeros(2), u_array, 0.0)
     decrease_μ_and_Δ!(solver);
     @test solver.Δ == 0.5
     @test solver.μ == 0.0
@@ -155,11 +160,11 @@ using Test
     prob = FiniteHorizonRiskSensitiveOptimalControlProblem(f, c, h, W, N)
 
     solver = ILEQGSolver(prob);
-    initialize!(solver, prob, zeros(2), u_array)
+    initialize!(solver, prob, zeros(2), u_array, θ)
     approx_result = approximate_model(prob, solver.l_array, solver.x_array,
                                       solver.A_array, solver.B_array);
     dp_result, dl_array = solve_approximate_dp!(solver, approx_result, false, θ=θ);
-    value_new = line_search!(solver, prob, dp_result, dl_array, θ, false)
+    value_new = line_search!(solver, prob, dl_array, θ, false)
     @test length(solver.ϵ_history) == 1
     @test solver.ϵ_history[1][1] == 1.0;
     @test solver.ϵ_history[1][2] < 0.0

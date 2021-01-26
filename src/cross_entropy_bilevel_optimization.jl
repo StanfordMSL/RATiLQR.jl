@@ -156,7 +156,7 @@ function compute_value_worker(ce_solver::CrossEntropyBilevelOptimizationSolver,
                         ϵ_init=ce_solver.ϵ_init_ileqg,
                         ϵ_min=ce_solver.ϵ_min_ileqg,
                         f_returns_jacobian=ce_solver.f_returns_jacobian)
-    initialize!(ileqg, problem, x, u_array)
+    #initialize!(ileqg, problem, x, u_array, θ)
     value = 0.0
     try
         value = solve!(ileqg, problem, x, u_array, θ=θ, verbose=false)[4];
@@ -215,7 +215,7 @@ function compute_cost_serial(ce_solver::CrossEntropyBilevelOptimizationSolver,
                                    ϵ_init=ce_solver.ϵ_init_ileqg,
                                    ϵ_min=ce_solver.ϵ_min_ileqg,
                                    f_returns_jacobian=ce_solver.f_returns_jacobian)
-        initialize!(ileqg_solver, problem, x, u_array)
+        #initialize!(ileqg_solver, problem, x, u_array, θ_array[ii])
         try
             cost_array[ii] = solve!(ileqg_solver, problem, x, u_array, θ=θ_array[ii], verbose=false)[4] +
                              kl_bound/θ_array[ii]
@@ -400,7 +400,7 @@ function solve!(ce_solver::CrossEntropyBilevelOptimizationSolver,
                                        ϵ_init=ce_solver.ϵ_init_ileqg,
                                        ϵ_min=ce_solver.ϵ_min_ileqg,
                                        f_returns_jacobian=ce_solver.f_returns_jacobian)
-            initialize!(ileqg_solver, problem, x_0, u_array)
+            #initialize!(ileqg_solver, problem, x_0, u_array, θ_opt)
             x_array, l_array, L_array, value, ~ = solve!(ileqg_solver, problem, x_0, u_array, θ=θ_opt, verbose=verbose)
             if kl_bound > 0
                 return θ_opt, x_array, l_array, L_array, value + kl_bound/θ_opt, θ_min, θ_max

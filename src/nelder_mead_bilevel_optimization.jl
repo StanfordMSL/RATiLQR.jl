@@ -146,7 +146,7 @@ function compute_cost_worker(nm_solver::NelderMeadBilevelOptimizationSolver,
                         ϵ_init=nm_solver.ϵ_init_ileqg,
                         ϵ_min=nm_solver.ϵ_min_ileqg,
                         f_returns_jacobian=nm_solver.f_returns_jacobian)
-    initialize!(ileqg, problem, x, u_array)
+    #initialize!(ileqg, problem, x, u_array, θ)
     cost = 0.0
     try
         cost = solve!(ileqg, problem, x, u_array, θ=θ, verbose=false)[4] +
@@ -342,7 +342,7 @@ function solve!(nm_solver::NelderMeadBilevelOptimizationSolver,
                                ϵ_init=nm_solver.ϵ_init_ileqg,
                                ϵ_min=nm_solver.ϵ_min_ileqg,
                                f_returns_jacobian=nm_solver.f_returns_jacobian)
-    initialize!(ileqg_solver, problem, x_0, u_array)
+    #initialize!(ileqg_solver, problem, x_0, u_array, θ_opt)
     x_array, l_array, L_array, value, ~ = solve!(ileqg_solver, problem, x_0, u_array, θ=θ_opt, verbose=verbose)
     if kl_bound > 0
         return θ_opt, x_array, l_array, L_array, value + kl_bound/θ_opt
