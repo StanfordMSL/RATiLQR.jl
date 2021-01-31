@@ -25,9 +25,6 @@ RAT iLQR++ (i.e. Nelder-Mead Simplex Method + iLEQG) Solver.
   norm of the change in nominal control over the horizon is less than `d`, the
   solver is considered to be converged. Default: `1e-2`.
 - `iter_max_ileqg::Int64` -- maximum iteration number. Default: 100.
-- `β_ileqg::Float64` -- Armijo condition number (>= 0) defining a sufficient decrease
-  for backtracking line search. If `β == 0`, then any cost-to-go improvement is
-  considered a sufficient decrease. Default: `1e-4`.
 - `ϵ_init_ileqg::Float64` -- initial step size in (`ϵ_min`, 1] to start the
   backtracking line search with. If `adaptive_ϵ_init` is `true`, then this
   value is overridden by the solver's adaptive initialization functionality
@@ -78,7 +75,7 @@ mutable struct NelderMeadBilevelOptimizationSolver
     λ_ileqg::Float64               # Multiplicative factor for line search step parameter in (0, 1)
     d_ileqg::Float64               # Convergence error norm thresholds
     iter_max_ileqg::Int64          # Maximum iteration
-    β_ileqg::Float64               # Armijo search condition
+    # β_ileqg::Float64               # Armijo search condition
     ϵ_init_auto_ileqg::Bool        # Automatic initialization of ϵ_init from the previous iLEQG iteration.
     ϵ_init_ileqg::Float64          # Initial step size for backtracking line search
     ϵ_min_ileqg::Float64           # Minimum step size for backtracking line search
@@ -107,7 +104,7 @@ function NelderMeadBilevelOptimizationSolver(;μ_min_ileqg=1e-6,
                                               λ_ileqg=0.5,
                                               d_ileqg=1e-2,
                                               iter_max_ileqg=100,
-                                              β_ileqg=1e-4,
+                                              # β_ileqg=1e-4,
                                               adaptive_ϵ_init_ileqg=false,
                                               ϵ_init_ileqg=1.0,
                                               ϵ_min_ileqg=1e-6,
@@ -124,7 +121,7 @@ function NelderMeadBilevelOptimizationSolver(;μ_min_ileqg=1e-6,
     iter_current = 0
 
     return NelderMeadBilevelOptimizationSolver(μ_min_ileqg, Δ_0_ileqg, λ_ileqg, d_ileqg,
-                                               iter_max_ileqg, β_ileqg, adaptive_ϵ_init_ileqg,
+                                               iter_max_ileqg, adaptive_ϵ_init_ileqg,
                                                ϵ_init_ileqg, ϵ_min_ileqg, f_returns_jacobian,
                                                α, β, γ, ϵ, λ, iter_max, θ_high_init, θ_low_init,
                                                iter_current, θ_high, θ_low, nothing, nothing)
@@ -144,12 +141,12 @@ function compute_cost_worker(nm_solver::NelderMeadBilevelOptimizationSolver,
                         λ=nm_solver.λ_ileqg,
                         d=nm_solver.d_ileqg,
                         iter_max=nm_solver.iter_max_ileqg,
-                        β=nm_solver.β_ileqg,
+                        # β=nm_solver.β_ileqg,
                         adaptive_ϵ_init=nm_solver.ϵ_init_auto_ileqg,
                         ϵ_init=nm_solver.ϵ_init_ileqg,
                         ϵ_min=nm_solver.ϵ_min_ileqg,
                         f_returns_jacobian=nm_solver.f_returns_jacobian)
-    initialize!(ileqg, problem, x, u_array)
+    #initialize!(ileqg, problem, x, u_array, θ)
     cost = 0.0
     try
         cost = solve!(ileqg, problem, x, u_array, θ=θ, verbose=false)[4] +
@@ -340,12 +337,12 @@ function solve!(nm_solver::NelderMeadBilevelOptimizationSolver,
                                λ=nm_solver.λ_ileqg,
                                d=nm_solver.d_ileqg,
                                iter_max=nm_solver.iter_max_ileqg,
-                               β=nm_solver.β_ileqg,
+                               # β=nm_solver.β_ileqg,
                                adaptive_ϵ_init=nm_solver.ϵ_init_auto_ileqg,
                                ϵ_init=nm_solver.ϵ_init_ileqg,
                                ϵ_min=nm_solver.ϵ_min_ileqg,
                                f_returns_jacobian=nm_solver.f_returns_jacobian)
-    initialize!(ileqg_solver, problem, x_0, u_array)
+    #initialize!(ileqg_solver, problem, x_0, u_array, θ_opt)
     x_array, l_array, L_array, value, ~ = solve!(ileqg_solver, problem, x_0, u_array, θ=θ_opt, verbose=verbose)
     if kl_bound > 0
         return θ_opt, x_array, l_array, L_array, value + kl_bound/θ_opt

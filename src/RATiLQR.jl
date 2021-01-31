@@ -32,10 +32,10 @@ export
     ApproximationResult,
     approximate_model,
     DynamicProgrammingResult,
+    solve_approximate_dp!,
     solve_approximate_dp,
     increase_μ_and_Δ!,
     decrease_μ_and_Δ!,
-    regularize!,
     line_search!,
     step!,
     solve!
