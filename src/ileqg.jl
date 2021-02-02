@@ -516,10 +516,10 @@ function line_search!(ileqg::ILEQGSolver, problem::FiniteHorizonRiskSensitiveOpt
             approx_result_new = approximate_model(problem, u_array_new, x_array_new);
         end
         dp_result_new =
-        #try
+        try
             solve_approximate_dp(approx_result_new, ileqg.L_array,
                                  θ=θ, μ=ileqg.μ)
-        #=catch e
+        catch e
             nothing;
         end
         if isnothing(dp_result_new)
@@ -528,7 +528,7 @@ function line_search!(ileqg::ILEQGSolver, problem::FiniteHorizonRiskSensitiveOpt
                 println("----Approximate DP not PosDef. Re-doing with ϵ == $(ϵ)");
             end
             continue;
-        end=#
+        end
         expected_cost_new = dp_result_new.s_array[1];
         push!(ileqg.ϵ_history, (ϵ, expected_cost_new - expected_cost_current));
         if expected_cost_new ≈ expected_cost_current || expected_cost_new < expected_cost_current
