@@ -389,10 +389,14 @@ function solve_approximate_dp!(ileqg::ILEQGSolver, approx_result::ApproximationR
             @inbounds s_vec_array[ii] = q_vec + A'*D*s_vec_array[ii + 1] + L'*H_array[ii]*dl + L'*g_array[ii] + G_array[ii]'*dl;
             @inbounds S_array[ii] = Q + A'*D*S_array[ii + 1]*A + L'*H_array[ii]*L + L'*G_array[ii] + G_array[ii]'*L;
             @inbounds S_array[ii] = Symmetric(S_array[ii])
+            if ii == 1
+                all_hessians_psd = true
+            end
         end
-        all_hessians_psd = true;
-        if verbose
-            println("------Approximate dynamic programming solved.")
+        if all_hessians_psd
+            if verbose
+                println("------Approximate dynamic programming solved.")
+            end
         end
     end
     dp_result = DynamicProgrammingResult(s_array, s_vec_array, S_array,
