@@ -19,8 +19,8 @@ using Statistics
 # Optimal Control Problems
 export
     OptimalControlProblem,
-    FiniteHorizonRiskSensitiveOptimalControlProblem,
-    FiniteHorizonGenerativeOptimalControlProblem
+    FiniteHorizonAdditiveGaussianProblem,
+    FiniteHorizonGenerativeProblem
 include("optimal_control_problems.jl")
 
 # iterative Linear-Exponential-Quadratic-Gaussian

@@ -15,7 +15,7 @@ using Test
     W(k) = Matrix(1.0I, 2, 2);
     N = 10;
 
-    prob = FiniteHorizonRiskSensitiveOptimalControlProblem(f, c, h, W, N)
+    prob = FiniteHorizonAdditiveGaussianProblem(f, c, h, W, N)
 
     u_array = [ones(2) for ii = 1 : prob.N];
     x_array = simulate_dynamics(prob, zeros(2), u_array);
@@ -157,7 +157,7 @@ using Test
 
     u_array = [0.1*ones(2) for ii = 1 : prob.N];
 
-    prob = FiniteHorizonRiskSensitiveOptimalControlProblem(f, c, h, W, N)
+    prob = FiniteHorizonAdditiveGaussianProblem(f, c, h, W, N)
 
     solver = ILEQGSolver(prob);
     initialize!(solver, prob, zeros(2), u_array, θ)

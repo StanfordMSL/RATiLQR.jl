@@ -15,7 +15,7 @@ using Distributions
 """
 Simulate noiseless dynamics x_{t+1} = f(x_t, u_t) with u_array from x_0.
 """
-function simulate_dynamics(problem::FiniteHorizonRiskSensitiveOptimalControlProblem,
+function simulate_dynamics(problem::FiniteHorizonAdditiveGaussianProblem,
                            x_0::Vector{Float64}, u_array::Vector{Vector{Float64}};
                            f_returns_jacobian=false)
     @assert problem.N == length(u_array)
@@ -41,7 +41,7 @@ end;
 """
 Simulate noisy dynamics x_{t+1} = f(x_t, u_t) + w_t with w_t ~ N(0, W(t)) and u_array from x_0.
 """
-function simulate_dynamics(problem::FiniteHorizonRiskSensitiveOptimalControlProblem,
+function simulate_dynamics(problem::FiniteHorizonAdditiveGaussianProblem,
                            x_0::Vector{Float64}, u_array::Vector{Vector{Float64}},
                            rng::AbstractRNG)
     @assert problem.N == length(u_array)
@@ -59,7 +59,7 @@ end;
 Simulate noiseless dynamics x_{t+1} = f(x_t, u_t) with x_array and state feedback policy
 π(x_t) = L_t*(x_t - ̄x_t) + l_t.
 """
-function simulate_dynamics(problem::FiniteHorizonRiskSensitiveOptimalControlProblem,
+function simulate_dynamics(problem::FiniteHorizonAdditiveGaussianProblem,
                            x_array::Vector{Vector{Float64}},
                            l_array::Vector{Vector{Float64}},
                            L_array::Vector{Matrix{Float64}};
@@ -91,7 +91,7 @@ end
 Simulate noisy dynamics x_{t+1} = f(x_t, u_t) + w_t with w_t ~ N(0, W(t)), x_array and state feedback
 policy π(x_t) = L_t*(x_t - ̄x_t) + l_t.
 """
-function simulate_dynamics(problem::FiniteHorizonRiskSensitiveOptimalControlProblem,
+function simulate_dynamics(problem::FiniteHorizonAdditiveGaussianProblem,
                            x_array::Vector{Vector{Float64}},
                            l_array::Vector{Vector{Float64}},
                            L_array::Vector{Matrix{Float64}},
@@ -112,7 +112,7 @@ end
 """
 Integrate cost given state and control trajectories
 """
-function integrate_cost(problem::FiniteHorizonRiskSensitiveOptimalControlProblem,
+function integrate_cost(problem::FiniteHorizonAdditiveGaussianProblem,
                         x_array::Vector{Vector{Float64}}, u_array::Vector{Vector{Float64}})
     @assert problem.N == length(u_array) && problem.N + 1 == length(x_array)
     cost = 0.0;
@@ -125,7 +125,7 @@ end;
 
 
 """
-    ILEQGSolver(problem::FiniteHorizonRiskSensitiveOptimalControlProblems, kwargs...)
+    ILEQGSolver(problem::FiniteHorizonAdditiveGaussianProblems, kwargs...)
 
 iLQG and iLEQG Solver for `problem`.
 
@@ -188,7 +188,7 @@ mutable struct ILEQGSolver
     ϵ_init_init::Float64 # initial value of ϵ_init
 end;
 
-function ILEQGSolver(problem::FiniteHorizonRiskSensitiveOptimalControlProblem;
+function ILEQGSolver(problem::FiniteHorizonAdditiveGaussianProblem;
                      μ_min=1e-6, Δ_0=2.0, λ=0.5, d=1e-2, iter_max=100,
                      ϵ_init=1.0, adaptive_ϵ_init=false,
                      ϵ_min=1e-6, f_returns_jacobian=false)
@@ -211,7 +211,7 @@ end;
 """
 Initialize iLEQG solver
 """
-function initialize!(ileqg::ILEQGSolver, problem::FiniteHorizonRiskSensitiveOptimalControlProblem,
+function initialize!(ileqg::ILEQGSolver, problem::FiniteHorizonAdditiveGaussianProblem,
                      x_0::Vector{Float64}, u_array::Vector{Vector{Float64}}, θ::Float64)
     ileqg.μ, ileqg.Δ = 0.0, ileqg.Δ_0;
     ileqg.d_current = Inf;
@@ -255,7 +255,7 @@ end
 """
 Linearize the dynamics and quadratize the costs around the nominal trajectory.
 """
-function approximate_model(problem::FiniteHorizonRiskSensitiveOptimalControlProblem,
+function approximate_model(problem::FiniteHorizonAdditiveGaussianProblem,
                            u_array::Vector{Vector{Float64}},
                            x_array::Vector{Vector{Float64}},
                            A_array_input::Union{Nothing, Vector{Matrix{Float64}}}=nothing,
@@ -491,7 +491,7 @@ end;
 """
 Perform Backtracking Line Search
 """
-function line_search!(ileqg::ILEQGSolver, problem::FiniteHorizonRiskSensitiveOptimalControlProblem,
+function line_search!(ileqg::ILEQGSolver, problem::FiniteHorizonAdditiveGaussianProblem,
                       dl_array_new::Vector{Vector{Float64}}, θ::Float64, verbose=true)
 
     expected_cost_current = ileqg.value_current;
@@ -595,7 +595,7 @@ end
 """
 single iteration of iLEQG
 """
-function step!(ileqg::ILEQGSolver, problem::FiniteHorizonRiskSensitiveOptimalControlProblem, θ::Float64, verbose=true)
+function step!(ileqg::ILEQGSolver, problem::FiniteHorizonAdditiveGaussianProblem, θ::Float64, verbose=true)
     ileqg.iter_current += 1;
     if verbose
         println("--ILEQG iteration $(ileqg.iter_current)")
@@ -614,7 +614,7 @@ end
 
 
 """
-    solve!(ileqg::ILEQGSolver, problem::FiniteHorizonRiskSensitiveOptimalControlProblem,
+    solve!(ileqg::ILEQGSolver, problem::FiniteHorizonAdditiveGaussianProblem,
     x_0::Vector{Float64}, u_array::Vector{Vector{Float64}}; θ::Float64, verbose=true)
 
 Given `problem`, and `ileqg` solver, solve iLQG (if `θ == 0`) or iLEQG (if `θ > 0`)
@@ -633,7 +633,7 @@ with current state `x_0` and nominal control schedule `u_array = [u_0, ..., u_{N
   `π_k(x) = L_k(x - x_k) + l_k`.
 """
 function solve!(ileqg::ILEQGSolver,
-                problem::FiniteHorizonRiskSensitiveOptimalControlProblem,
+                problem::FiniteHorizonAdditiveGaussianProblem,
                 x_0::Vector{Float64}, u_array::Vector{Vector{Float64}};
                 θ::Float64, verbose=true)
     initialize!(ileqg, problem, x_0, u_array, θ);

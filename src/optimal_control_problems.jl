@@ -13,7 +13,7 @@ abstract type OptimalControlProblem end
 
 # Optimal Control Problem for Risk-Sensitive iLEQG (or Risk-Neutral iLQG)
 """
-    FiniteHorizonRiskSensitiveOptimalControlProblem(f, c, h, W, N) <: OptimalControlProblem
+    FiniteHorizonAdditiveGaussianProblem(f, c, h, W, N) <: OptimalControlProblem
 
 A finite horizon, stochastic optimal control problem where the dynamics function is subject to additive Gaussian noise w ~ N(0, W).
 
@@ -61,10 +61,10 @@ N = 10;
 h(x) = N/2*x'*x; # quadratic terminal cost
 W(k) = Matrix(0.1LinearAlgebra.I, 2, 2);
 
-problem = FiniteHorizonRiskSensitiveOptimalControlProblem(f, c, h, W, N);
+problem = FiniteHorizonAdditiveGaussianProblem(f, c, h, W, N);
 ```
 """
-mutable struct FiniteHorizonRiskSensitiveOptimalControlProblem <: OptimalControlProblem
+mutable struct FiniteHorizonAdditiveGaussianProblem <: OptimalControlProblem
     f::Function # Dynamics function x_{t+1} = f(x_t, u_t)
     c::Function # Stage cost function c(k, x, u) where the time index k == 0 is the initial timestep
     h::Function # Terminal cost function h(x)
@@ -74,7 +74,7 @@ end
 
 # Optimal Control Problem for Sampling-based MPC methods
 """
-    FiniteHorizonGenerativeOptimalControlProblem(f_stochastic, c, h, N) <: OptimalControlProblem
+    FiniteHorizonGenerativeProblem(f_stochastic, c, h, N) <: OptimalControlProblem
 
 A finite horizon, stochastic optimal control problem where the dynamics function is stochastic and generative.
 
@@ -120,10 +120,10 @@ N = 10;
 h(x) = N/2*x'*x; # quadratic terminal cost
 W(k) = Matrix(0.1LinearAlgebra.I, 2, 2);
 
-problem = FiniteHorizonGenerativeOptimalControlProblem(f_stochastic, c, h, N);
+problem = FiniteHorizonGenerativeProblem(f_stochastic, c, h, N);
 ```
 """
-mutable struct FiniteHorizonGenerativeOptimalControlProblem <: OptimalControlProblem
+mutable struct FiniteHorizonGenerativeProblem <: OptimalControlProblem
     f_stochastic::Function # Stochastic dynamics function x_{t+1} = f_stochastic(x_t, u_t, rng, use_true_model=false)
     c::Function # Stage cost function c(k, x, u) where the time index k == 0 is the initial timestep
     h::Function # Terminal cost function h(x)

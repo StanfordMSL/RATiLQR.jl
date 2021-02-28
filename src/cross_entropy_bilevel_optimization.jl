@@ -142,7 +142,7 @@ end
 Compute iLEQG value on a worker process
 """
 function compute_value_worker(ce_solver::CrossEntropyBilevelOptimizationSolver,
-                              problem::FiniteHorizonRiskSensitiveOptimalControlProblem,
+                              problem::FiniteHorizonAdditiveGaussianProblem,
                               x::Vector{Float64}, u_array::Vector{Vector{Float64}},
                               θ::Float64)
     ileqg = ILEQGSolver(problem,
@@ -171,7 +171,7 @@ end
 Compute iLEQG values in parallel on multiple worker processes
 """
 function compute_cost(ce_solver::CrossEntropyBilevelOptimizationSolver,
-                      problem::FiniteHorizonRiskSensitiveOptimalControlProblem,
+                      problem::FiniteHorizonAdditiveGaussianProblem,
                       x::Vector{Float64},
                       u_array::Vector{Vector{Float64}},
                       θ_array::Vector{Float64},
@@ -196,7 +196,7 @@ end
 
 # For debugging only. It should work in the same way as compute_cost
 function compute_cost_serial(ce_solver::CrossEntropyBilevelOptimizationSolver,
-                             problem::FiniteHorizonRiskSensitiveOptimalControlProblem,
+                             problem::FiniteHorizonAdditiveGaussianProblem,
                              x::Vector{Float64},
                              u_array::Vector{Vector{Float64}},
                              θ_array::Vector{Float64},
@@ -250,7 +250,7 @@ end
 Single iteration of RATiLQR
 """
 function step!(ce_solver::CrossEntropyBilevelOptimizationSolver,
-               problem::FiniteHorizonRiskSensitiveOptimalControlProblem,
+               problem::FiniteHorizonAdditiveGaussianProblem,
                x::Vector{Float64},
                u_array::Vector{Vector{Float64}},
                kl_bound::Float64,
@@ -337,7 +337,7 @@ end
 
 """
     solve!(ce_solver::CrossEntropyBilevelOptimizationSolver,
-    problem::FiniteHorizonRiskSensitiveOptimalControlProblem,
+    problem::FiniteHorizonAdditiveGaussianProblem,
     x_0::Vector{Float64}, u_array::Vector{Vector{Float64}}, rng::AbstractRNG;
     kl_bound::Float64, verbose=true, serial=false)
 
@@ -362,7 +362,7 @@ under the KL divergence bound of `kl_bound` (>= 0).
   on a single process. If `false` it is distributed on all the available worker processes.
 """
 function solve!(ce_solver::CrossEntropyBilevelOptimizationSolver,
-                problem::FiniteHorizonRiskSensitiveOptimalControlProblem,
+                problem::FiniteHorizonAdditiveGaussianProblem,
                 x_0::Vector{Float64}, u_array::Vector{Vector{Float64}}, rng::AbstractRNG;
                 kl_bound::Float64, verbose=true, serial=false)
     @assert kl_bound >= 0 "KL Divergence Bound must be non-negative"

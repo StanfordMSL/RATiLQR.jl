@@ -19,7 +19,7 @@ using Random
     x_0 = zeros(2)
     u_array = [0.1*ones(2) for ii = 1 : N];
 
-    problem = FiniteHorizonRiskSensitiveOptimalControlProblem(f, c, h, W, N)
+    problem = FiniteHorizonAdditiveGaussianProblem(f, c, h, W, N)
 
     solver = CrossEntropyBilevelOptimizationSolver(num_samples=3);
     initialize!(solver)

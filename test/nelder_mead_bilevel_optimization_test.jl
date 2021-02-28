@@ -18,7 +18,7 @@ using LinearAlgebra
     x_0 = zeros(2)
     u_array = [0.1*ones(2) for ii = 1 : N];
 
-    problem = FiniteHorizonRiskSensitiveOptimalControlProblem(f, c, h, W, N);
+    problem = FiniteHorizonAdditiveGaussianProblem(f, c, h, W, N);
     kl_bound = 1.0;
     nm_solver = NelderMeadBilevelOptimizationSolver(iter_max=20, ϵ=1e-3, θ_high_init=10.0, θ_low_init=1e-8);
 

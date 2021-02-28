@@ -45,7 +45,7 @@ mutable struct CrossEntropyDirectOptimizationSolver # a.k.a. "PETS"
     Σ_init_array::Vector{Matrix{Float64}}
     μ_array::Vector{Vector{Float64}}
     Σ_array::Vector{Matrix{Float64}}
-    N::Int64 # control sequence length > 0 (must be the same as N in FiniteHorizonGenerativeOptimalControlProblem)
+    N::Int64 # control sequence length > 0 (must be the same as N in FiniteHorizonGenerativeProblem)
     iter_current::Int64
 end
 
@@ -74,7 +74,7 @@ function initialize!(direct_solver::CrossEntropyDirectOptimizationSolver)
 end
 
 function compute_cost_worker(direct_solver::CrossEntropyDirectOptimizationSolver,
-                              problem::FiniteHorizonGenerativeOptimalControlProblem,
+                              problem::FiniteHorizonGenerativeProblem,
                               x::Vector{Float64}, #initial state
                               u_array::Vector{Vector{Float64}},
                               rng::AbstractRNG, use_true_model=false)
@@ -98,7 +98,7 @@ function compute_cost_worker(direct_solver::CrossEntropyDirectOptimizationSolver
 end
 
 function compute_cost(direct_solver::CrossEntropyDirectOptimizationSolver,
-                      problem::FiniteHorizonGenerativeOptimalControlProblem,
+                      problem::FiniteHorizonGenerativeProblem,
                       x::Vector{Float64}, #initial state
                       control_sequence_array::Vector{Vector{Vector{Float64}}},
                       rng::AbstractRNG, use_true_model=false)
@@ -126,7 +126,7 @@ function compute_cost(direct_solver::CrossEntropyDirectOptimizationSolver,
 end
 
 function compute_cost_serial(direct_solver::CrossEntropyDirectOptimizationSolver,
-                             problem::FiniteHorizonGenerativeOptimalControlProblem,
+                             problem::FiniteHorizonGenerativeProblem,
                              x::Vector{Float64}, #initial state
                              control_sequence_array::Vector{Vector{Vector{Float64}}},
                              rng::AbstractRNG, use_true_model=false)
@@ -191,7 +191,7 @@ function compute_new_distribution(direct_solver::CrossEntropyDirectOptimizationS
 end
 
 function step!(direct_solver::CrossEntropyDirectOptimizationSolver,
-               problem::FiniteHorizonGenerativeOptimalControlProblem,
+               problem::FiniteHorizonGenerativeProblem,
                x::Vector{Float64},
                rng::AbstractRNG,
                use_true_model=false, verbose=true, serial=false)
@@ -246,7 +246,7 @@ end;
 
 """
     solve!(direct_solver::CrossEntropyDirectOptimizationSolver,
-    problem::FiniteHorizonGenerativeOptimalControlProblem, x_0::Vector{Float64},
+    problem::FiniteHorizonGenerativeProblem, x_0::Vector{Float64},
     rng::AbstractRNG; use_true_model=false, verbose=true, serial=true)
 
 Given `problem` and `direct_solver` (i.e. a PETS Solver), solve stochastic optimal
@@ -268,7 +268,7 @@ control with current state `x_0`.
   this algorithm.
 """
 function solve!(direct_solver::CrossEntropyDirectOptimizationSolver,
-                problem::FiniteHorizonGenerativeOptimalControlProblem,
+                problem::FiniteHorizonGenerativeProblem,
                 x_0::Vector{Float64},
                 rng::AbstractRNG;
                 use_true_model=false, verbose=true, serial=true)

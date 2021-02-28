@@ -17,7 +17,7 @@ using Random
     h(x) = 1.0;
     N = 20;
 
-    problem = FiniteHorizonGenerativeOptimalControlProblem(f_stochastic, c, h, N);
+    problem = FiniteHorizonGenerativeProblem(f_stochastic, c, h, N);
 
     # CrossEntropyDirectOptimizationSolver test
     μ_init_array = [zeros(2) for ii = 1 : N];

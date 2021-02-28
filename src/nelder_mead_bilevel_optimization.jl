@@ -132,7 +132,7 @@ end
 Compute Nelder-Mead cost on a worker process
 """
 function compute_cost_worker(nm_solver::NelderMeadBilevelOptimizationSolver,
-                             problem::FiniteHorizonRiskSensitiveOptimalControlProblem,
+                             problem::FiniteHorizonAdditiveGaussianProblem,
                              x::Vector{Float64}, u_array::Vector{Vector{Float64}},
                              θ::Float64, kl_bound::Float64)
     ileqg = ILEQGSolver(problem,
@@ -172,7 +172,7 @@ end
 Single iteration of NelderMeadBilevelOptimization solver
 """
 function step!(nm_solver::NelderMeadBilevelOptimizationSolver,
-               problem::FiniteHorizonRiskSensitiveOptimalControlProblem,
+               problem::FiniteHorizonAdditiveGaussianProblem,
                x::Vector{Float64},
                u_array::Vector{Vector{Float64}},
                kl_bound::Float64,
@@ -254,7 +254,7 @@ end
 
 """
     solve!(nm_solver::NelderMeadBilevelOptimizationSolver,
-    problem::FiniteHorizonRiskSensitiveOptimalControlProblem, x_0::Vector{Float64},
+    problem::FiniteHorizonAdditiveGaussianProblem, x_0::Vector{Float64},
     u_array::Vector{Vector{Float64}}; kl_bound::Float64, verbose=true)
 
 Given `problem` and `nm_solver` (i.e. a RAT iLQR++ Solver), solve distributionally robust
@@ -274,7 +274,7 @@ under the KL divergence bound of `kl_bound` (>= 0).
 - If `kl_bound` is 0.0, the solver reduces to iLQG.
 """
 function solve!(nm_solver::NelderMeadBilevelOptimizationSolver,
-                problem::FiniteHorizonRiskSensitiveOptimalControlProblem,
+                problem::FiniteHorizonAdditiveGaussianProblem,
                 x_0::Vector{Float64}, u_array::Vector{Vector{Float64}};
                 kl_bound::Float64, verbose=true)
     @assert kl_bound >= 0 "KL Divergence Bound must be non-negative"
