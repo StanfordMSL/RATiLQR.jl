@@ -12,7 +12,7 @@ using Random
 
 @testset "PETS Test" begin
 
-    f_stochastic(x, u, rng, use_true_model=false) = x + u + rand(rng, length(x))
+    f_stochastic(x, u, rng, deterministic=false) = x + u + rand(rng, length(x))
     c(k, x, u) = sum(abs.(u));
     h(x) = 1.0;
     N = 20;
@@ -23,8 +23,10 @@ using Random
     μ_init_array = [zeros(2) for ii = 1 : N];
     Σ_init_array = [Matrix(1.0I, 2, 2) for ii = 1 : N];
     direct_solver = CrossEntropyDirectOptimizationSolver(μ_init_array, Σ_init_array,
-                                                         num_control_samples=20, num_trajectory_samples=100,
-                                                         num_elite=5, iter_max=20, smoothing_factor=0.1);
+                                                         num_control_samples=20, deterministic_dynamics=false,
+                                                         num_trajectory_samples=100,
+                                                         num_elite=5, iter_max=20, smoothing_factor=0.1,
+                                                         mean_carry_over=false);
 
     @test direct_solver.N == N
     @test direct_solver.iter_current == 0;
@@ -89,8 +91,21 @@ using Random
     @test direct_solver.iter_current == 1;
 
     # solve! test
-    control_array, ~ = solve!(direct_solver, problem, x_init, rng, use_true_model=false, verbose=false);
+    control_array, ~ = solve!(direct_solver, problem, x_init, rng, verbose=false);
 
     @test direct_solver.iter_current == direct_solver.iter_max
 
+    # mean_carry_over test
+    @test direct_solver.μ_init_array == μ_init_array
+    @test direct_solver.Σ_init_array == Σ_init_array
+
+    direct_solver = CrossEntropyDirectOptimizationSolver(μ_init_array, Σ_init_array,
+                                                     num_control_samples=20, deterministic_dynamics=false,
+                                                     num_trajectory_samples=100,
+                                                     num_elite=5, iter_max=20, smoothing_factor=0.1,
+                                                     mean_carry_over=true);
+    control_array, ~ = solve!(direct_solver, problem, x_init, rng, verbose=false);
+    @test direct_solver.μ_init_array[1:end-1] == control_array[2:end]
+    @test direct_solver.μ_init_array[end] == zeros(2)
+    @test direct_solver.Σ_init_array == Σ_init_array
 end

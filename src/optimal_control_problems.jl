@@ -79,12 +79,12 @@ end
 A finite horizon, stochastic optimal control problem where the dynamics function is stochastic and generative.
 
 # Arguments
-- `f_stochastic(x, u, rng, use_true_model=false)` -- stochastic dynamics function
+- `f_stochastic(x, u, rng, deterministic=false)` -- stochastic dynamics function
   - `x` is a state vector and `u` is a control input vector.
   - The third positional argument `rng` is a random seed.
-  - The fourth positional argument `use_true_model` determines whether a solver has access
-    to the true stochastic dynamics and defaults to `false`.
-  - The return value is the (noisy) next state `x_next`.
+  - The fourth positional argument `deterministic` determines whether a solver relies on
+    the deterministic (i.e. noiseless) prediction model and defaults to `false`.
+  - The return value is the (noisy or noiseless) next state `x_next`.
 
 - `c(k, x, u)` -- stage cost function
   - `k::Int >= 0` is a time index where `k == 0` is the initial time.
@@ -99,19 +99,19 @@ A finite horizon, stochastic optimal control problem where the dynamics function
 import Distributions;
 import LinearAlgebra;
 
-function f_stochastic(x, u, rng, use_true_model=false)
+function f_stochastic(x, u, rng, deterministic=false)
     Σ_1 = Matrix(0.5LinearAlgebra.I, 2, 2);
 
-    if use_true_model  # accurate GMM model
+    noise = zeros(length(x));
+    if !deterministic  # GMM model
         Σ_2 = Matrix(1.0LinearAlgebra.I, 2, 2)
         d = Distributions.MixtureModel([Distributions.MvNormal(zeros(2), Σ_1),
                                         Distributions.MvNormal(ones(2), Σ_2)],
                                         [0.5, 0.5]);
-    else  # inaccurate Gaussian model
-        d = Distributions.MvNormal(zeros(2), Σ_1);
+        noise = Distributions.rand(rng, d);
     end
 
-    x_next = x + u + Distributions.rand(rng, d); # 2D single integrator dynamics
+    x_next = x + u + noise; # 2D single integrator dynamics
     return x_next;
 end
 

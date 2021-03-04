@@ -22,6 +22,8 @@ PETS Solver initialized with `μ_init_array = [μ_0,...,μ_{N-1}]` and
 # Optional Keyword Arguments
 - `num_control_samples::Int64` -- number of Monte Carlo samples for the control
   trajectory. Default: `10`.
+- `deterministic_dynamics::Bool` -- determinies whether to use deterministic prediction
+  for the dynamics. If `true`, `num_trajectory_samples` must be 1. Default: `false`.
 - `num_trajectory_samples::Int64` -- number of Monte Carlo samples for the state
   trajectory. Default: `10`.
 - `num_elite::Int64` -- number of elite samples. Default: `3`.
@@ -30,15 +32,19 @@ PETS Solver initialized with `μ_init_array = [μ_0,...,μ_{N-1}]` and
   mean and the variance of the Cross Entropy distribution for the next iteration.
   If `smoothing_factor` is `0.0`, the updated distribution is independent of the
   previous iteration. If it is `1.0`, the updated distribution is the same as the
-  previous iteration. Default. `0.1`.
+  previous iteration. Default: `0.1`.
+- `mean_carry_over::Bool` -- save μ_array of the last iteration and use it to
+  initialize μ_array in the next call to `solve!`. Default: `false`.
 """
 mutable struct CrossEntropyDirectOptimizationSolver # a.k.a. "PETS"
     # CE solver parameters
     num_control_samples::Int64
+    deterministic_dynamics::Bool
     num_trajectory_samples::Int64
     num_elite::Int64
     iter_max::Int64
     smoothing_factor::Float64
+    mean_carry_over::Bool
 
     # action_distributions
     μ_init_array::Vector{Vector{Float64}}
@@ -52,18 +58,25 @@ end
 function CrossEntropyDirectOptimizationSolver(μ_init_array::Vector{Vector{Float64}},
                                               Σ_init_array::Vector{Matrix{Float64}};
                                               num_control_samples=10,
+                                              deterministic_dynamics=false,
                                               num_trajectory_samples=10,
                                               num_elite=3,
                                               iter_max=5,
-                                              smoothing_factor=0.1)
+                                              smoothing_factor=0.1,
+                                              mean_carry_over=false)
 
     @assert length(μ_init_array) == length(Σ_init_array)
+    if deterministic_dynamics
+        @assert num_trajectory_samples == 1 "num_trajectory_samples must to be 1"
+    end
     μ_array, Σ_array = copy(μ_init_array), copy(Σ_init_array);
     N = length(μ_init_array);
     iter_current = 0;
 
-    return CrossEntropyDirectOptimizationSolver(num_control_samples, num_trajectory_samples, num_elite,
-                                                iter_max, smoothing_factor, μ_init_array, Σ_init_array,
+    return CrossEntropyDirectOptimizationSolver(num_control_samples, deterministic_dynamics,
+                                                num_trajectory_samples, num_elite,
+                                                iter_max, smoothing_factor, mean_carry_over,
+                                                μ_init_array, Σ_init_array,
                                                 μ_array, Σ_array, N, iter_current)
 end;
 
@@ -74,10 +87,10 @@ function initialize!(direct_solver::CrossEntropyDirectOptimizationSolver)
 end
 
 function compute_cost_worker(direct_solver::CrossEntropyDirectOptimizationSolver,
-                              problem::FiniteHorizonGenerativeProblem,
-                              x::Vector{Float64}, #initial state
-                              u_array::Vector{Vector{Float64}},
-                              rng::AbstractRNG, use_true_model=false)
+                             problem::FiniteHorizonGenerativeProblem,
+                             x::Vector{Float64}, #initial state
+                             u_array::Vector{Vector{Float64}},
+                             rng::AbstractRNG)
      # trajectory sampling & cost function integration
      x_history_array = Vector{Vector{Vector{Float64}}}(undef, direct_solver.num_trajectory_samples);
      sampled_cost_array = Vector{Float64}(undef, direct_solver.num_trajectory_samples);
@@ -88,7 +101,9 @@ function compute_cost_worker(direct_solver::CrossEntropyDirectOptimizationSolver
          for tt = 1 : direct_solver.N # for-loop over time steps
              # get stage cost and perform stochastic transition
              sampled_cost_array[kk] += problem.c(tt - 1, x_history_array[kk][tt], u_array[tt]);
-             x_history_array[kk][tt + 1] = problem.f_stochastic(x_history_array[kk][tt], u_array[tt], rng, use_true_model);
+             x_history_array[kk][tt + 1] =
+                problem.f_stochastic(x_history_array[kk][tt], u_array[tt], rng,
+                                     direct_solver.deterministic_dynamics);
          end
          # add terminal cost
          sampled_cost_array[kk] += problem.h(x_history_array[kk][end]);
@@ -101,7 +116,7 @@ function compute_cost(direct_solver::CrossEntropyDirectOptimizationSolver,
                       problem::FiniteHorizonGenerativeProblem,
                       x::Vector{Float64}, #initial state
                       control_sequence_array::Vector{Vector{Vector{Float64}}},
-                      rng::AbstractRNG, use_true_model=false)
+                      rng::AbstractRNG)
     @assert length(control_sequence_array) == direct_solver.num_control_samples;
     @assert all([length(sequence) == direct_solver.N for sequence in control_sequence_array]);
 
@@ -119,7 +134,7 @@ function compute_cost(direct_solver::CrossEntropyDirectOptimizationSolver,
             @inbounds @async cost_array[ii] =
                 remotecall_fetch(compute_cost_worker, proc_id_array[ii],
                                  direct_solver, problem, x, control_sequence_array[ii],
-                                 rng_array[proc_id_array[ii]], use_true_model)
+                                 rng_array[proc_id_array[ii]])
         end
     end
     return cost_array
@@ -129,7 +144,7 @@ function compute_cost_serial(direct_solver::CrossEntropyDirectOptimizationSolver
                              problem::FiniteHorizonGenerativeProblem,
                              x::Vector{Float64}, #initial state
                              control_sequence_array::Vector{Vector{Vector{Float64}}},
-                             rng::AbstractRNG, use_true_model=false)
+                             rng::AbstractRNG)
     @assert length(control_sequence_array) == direct_solver.num_control_samples;
     @assert all([length(sequence) == direct_solver.N for sequence in control_sequence_array]);
 
@@ -145,7 +160,9 @@ function compute_cost_serial(direct_solver::CrossEntropyDirectOptimizationSolver
             for tt = 1 : direct_solver.N # for-loop over time steps
                 # get stage cost and perform stochastic transition
                 sampled_cost_array_ii[kk] += problem.c(tt - 1, x_history_array_ii[kk][tt], control_sequence_array[ii][tt]);
-                x_history_array_ii[kk][tt + 1] = problem.f_stochastic(x_history_array_ii[kk][tt], control_sequence_array[ii][tt], rng, use_true_model);
+                x_history_array_ii[kk][tt + 1] =
+                    problem.f_stochastic(x_history_array_ii[kk][tt], control_sequence_array[ii][tt],
+                                         rng, direct_solver.deterministic_dynamics);
             end
             # add terminal cost
             sampled_cost_array_ii[kk] += problem.h(x_history_array_ii[kk][end]);
@@ -194,7 +211,7 @@ function step!(direct_solver::CrossEntropyDirectOptimizationSolver,
                problem::FiniteHorizonGenerativeProblem,
                x::Vector{Float64},
                rng::AbstractRNG,
-               use_true_model=false, verbose=true, serial=false)
+               verbose=true, serial=false)
     direct_solver.iter_current += 1;
     if verbose
         println("**CE iteration $(direct_solver.iter_current)")
@@ -221,9 +238,9 @@ function step!(direct_solver::CrossEntropyDirectOptimizationSolver,
     end
     if !serial
         # note that the resulting cost_array is different from the serial version, due to randjump.
-        cost_array = compute_cost(direct_solver, problem, x, control_sequence_array, rng, use_true_model);
+        cost_array = compute_cost(direct_solver, problem, x, control_sequence_array, rng);
     else
-        cost_array = compute_cost_serial(direct_solver, problem, x, control_sequence_array, rng, use_true_model);
+        cost_array = compute_cost_serial(direct_solver, problem, x, control_sequence_array, rng);
     end
     if verbose
         println(cost_array)
@@ -247,7 +264,7 @@ end;
 """
     solve!(direct_solver::CrossEntropyDirectOptimizationSolver,
     problem::FiniteHorizonGenerativeProblem, x_0::Vector{Float64},
-    rng::AbstractRNG; use_true_model=false, verbose=true, serial=true)
+    rng::AbstractRNG; verbose=true, serial=true)
 
 Given `problem` and `direct_solver` (i.e. a PETS Solver), solve stochastic optimal
 control with current state `x_0`.
@@ -260,8 +277,6 @@ control with current state `x_0`.
 
 # Notes
 - Returns an open-loop control policy.
-- If `use_true_model` is `true`, the solver uses the true stochastic dynamics model
-  defined in `problem.f_stochastic`.
 - If `serial` is `true`, Monte Carlo sampling of the Cross Entropy method is serialized
   on a single process. If `false` it is distributed on all the available worker processes.
   We recommend to leave this to `true` as distributed processing can be slower for
@@ -271,11 +286,18 @@ function solve!(direct_solver::CrossEntropyDirectOptimizationSolver,
                 problem::FiniteHorizonGenerativeProblem,
                 x_0::Vector{Float64},
                 rng::AbstractRNG;
-                use_true_model=false, verbose=true, serial=true)
+                verbose=true, serial=true)
     #setting serial=true by default as it turned out this is much faster than serial=false
     initialize!(direct_solver);
+    if direct_solver.deterministic_dynamics
+        @assert direct_solver.num_trajectory_samples == 1 "num_trajectory_samples must to be 1"
+    end
     while direct_solver.iter_current < direct_solver.iter_max
-        step!(direct_solver, problem, x_0, rng, use_true_model, verbose, serial)
+        step!(direct_solver, problem, x_0, rng, verbose, serial)
+    end
+    if direct_solver.mean_carry_over
+        # time indices are shifted, assuming that the algorithm runs in a receding-horizon fashion.
+        direct_solver.μ_init_array[1:end-1] = copy(direct_solver.μ_array[2:end])
     end
     return copy(direct_solver.μ_array), copy(direct_solver.Σ_array)
 end
