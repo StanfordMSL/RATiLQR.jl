@@ -41,9 +41,9 @@ export
     solve!
 include("ileqg.jl")
 
-# Cross Entropy Bilevel Optimization (i.e. RATiLQR)
+# Risk Auto-Tuning iterative LQR (i.e. Cross Entropy + iLEQG)
 export
-    CrossEntropyBilevelOptimizationSolver,
+    RATiLQRSolver,
     compute_value_worker,
     compute_cost,
     compute_cost_serial,
@@ -52,18 +52,9 @@ export
     solve!
 include("cross_entropy_bilevel_optimization.jl")
 
-# Nelder-Mead Simplex Bilevel Optimization
+# PETS (Cross Entropy Method with Stochastic Sampling of Dynamics)
 export
-    NelderMeadBilevelOptimizationSolver,
-    compute_cost_worker,
-    initialize!,
-    step!,
-    solve!
-include("nelder_mead_bilevel_optimization.jl")
-
-# PETS
-export
-    CrossEntropyDirectOptimizationSolver,
+    PETSSolver,
     initialize!,
     compute_cost_worker,
     compute_cost,

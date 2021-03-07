@@ -1,7 +1,7 @@
 name = "RATiLQR"
 uuid = "b46d3a9f-a0a5-4b0d-bc31-08384b826d8f"
 authors = ["Haruki Nishimura <hnishimura@stanford.edu>"]
-version = "0.1.0"
+version = "0.2.0"
 
 [deps]
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"

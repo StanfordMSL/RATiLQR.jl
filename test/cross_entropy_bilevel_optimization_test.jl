@@ -9,7 +9,7 @@ using Test
 using Random
 @everywhere using LinearAlgebra
 
-@testset "Cross Entropy Bilevel Optimization Test" begin
+@testset "RAT iLQR Test" begin
     @everywhere f(x, u) = x.^1.3 + u.^1.5;
     @everywhere c(k, x, u) = sum(x.^2.5 + u.^2.5);
     @everywhere h(x) = 1.0;
@@ -21,7 +21,7 @@ using Random
 
     problem = FiniteHorizonAdditiveGaussianProblem(f, c, h, W, N)
 
-    solver = CrossEntropyBilevelOptimizationSolver(num_samples=3);
+    solver = RATiLQRSolver(num_samples=3);
     initialize!(solver)
 
     θ_array = [0.1, 0.3, 0.43];

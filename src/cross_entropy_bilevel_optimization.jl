@@ -12,7 +12,7 @@ using Distributed
 
 
 """
-    CrossEntropyBilevelOptimizationSolver(kwargs...)
+    RATiLQRSolver(kwargs...)
 
 RAT iLQR (i.e. Cross Entropy Method + iLEQG) Solver.
 
@@ -67,7 +67,7 @@ RAT iLQR (i.e. Cross Entropy Method + iLEQG) Solver.
 - The values of `μ_init` and `σ_init`, which may be modified during optimization,
   are stored internally in the solver and　carried over to the next call to `solve!`.
 """
-mutable struct CrossEntropyBilevelOptimizationSolver
+mutable struct RATiLQRSolver
     # ileqg solver parameters
     μ_min_ileqg::Float64           # Minimum damping parameter for regularization
     Δ_0_ileqg::Float64             # Minimum Modification factor for μ
@@ -97,65 +97,65 @@ mutable struct CrossEntropyBilevelOptimizationSolver
     iter_current::Int64            # Current CE iteration
 end
 
-function CrossEntropyBilevelOptimizationSolver(;μ_min_ileqg=1e-6,
-                                               Δ_0_ileqg=2.0,
-                                               λ_ileqg=0.5,
-                                               d_ileqg=1e-2,
-                                               iter_max_ileqg=100,
-                                               # β_ileqg=1e-4,
-                                               adaptive_ϵ_init_ileqg=false,
-                                               ϵ_init_ileqg=1.0,
-                                               ϵ_min_ileqg=1e-6,
-                                               μ_init=1.0,
-                                               σ_init=2.0,
-                                               num_samples=10,
-                                               num_elite=3,
-                                               iter_max=5,
-                                               λ=0.5,
-                                               f_returns_jacobian=false,
-                                               use_θ_max=false)
+function RATiLQRSolver(;μ_min_ileqg=1e-6,
+                        Δ_0_ileqg=2.0,
+                        λ_ileqg=0.5,
+                        d_ileqg=1e-2,
+                        iter_max_ileqg=100,
+                        # β_ileqg=1e-4,
+                        adaptive_ϵ_init_ileqg=false,
+                        ϵ_init_ileqg=1.0,
+                        ϵ_min_ileqg=1e-6,
+                        μ_init=1.0,
+                        σ_init=2.0,
+                        num_samples=10,
+                        num_elite=3,
+                        iter_max=5,
+                        λ=0.5,
+                        f_returns_jacobian=false,
+                        use_θ_max=false)
 
     μ, σ = μ_init, σ_init
     θ_max, θ_min = 0.0, Inf
     iter_current = 0
 
-    return CrossEntropyBilevelOptimizationSolver(μ_min_ileqg, Δ_0_ileqg, λ_ileqg, d_ileqg,
-                                                 iter_max_ileqg, adaptive_ϵ_init_ileqg,
-                                                 ϵ_init_ileqg, ϵ_min_ileqg, f_returns_jacobian,
-                                                 num_samples, num_elite, iter_max, λ, use_θ_max,
-                                                 μ_init, σ_init, μ, σ, θ_max, θ_min, iter_current)
+    return RATiLQRSolver(μ_min_ileqg, Δ_0_ileqg, λ_ileqg, d_ileqg,
+                         iter_max_ileqg, adaptive_ϵ_init_ileqg,
+                         ϵ_init_ileqg, ϵ_min_ileqg, f_returns_jacobian,
+                         num_samples, num_elite, iter_max, λ, use_θ_max,
+                         μ_init, σ_init, μ, σ, θ_max, θ_min, iter_current)
 end
 
 
 """
 Initialize RATiLQR Solver
 """
-function initialize!(ce_solver::CrossEntropyBilevelOptimizationSolver)
-    ce_solver.iter_current = 0;
-    ce_solver.μ, ce_solver.σ = ce_solver.μ_init, ce_solver.σ_init
-    ce_solver.θ_max = 0.0;
-    ce_solver.θ_min = Inf;
+function initialize!(solver::RATiLQRSolver)
+    solver.iter_current = 0;
+    solver.μ, solver.σ = solver.μ_init, solver.σ_init
+    solver.θ_max = 0.0;
+    solver.θ_min = Inf;
 end
 
 
 """
 Compute iLEQG value on a worker process
 """
-function compute_value_worker(ce_solver::CrossEntropyBilevelOptimizationSolver,
+function compute_value_worker(solver::RATiLQRSolver,
                               problem::FiniteHorizonAdditiveGaussianProblem,
                               x::Vector{Float64}, u_array::Vector{Vector{Float64}},
                               θ::Float64)
     ileqg = ILEQGSolver(problem,
-                        μ_min=ce_solver.μ_min_ileqg,
-                        Δ_0=ce_solver.Δ_0_ileqg,
-                        λ=ce_solver.λ_ileqg,
-                        d=ce_solver.d_ileqg,
-                        iter_max=ce_solver.iter_max_ileqg,
-                        # β=ce_solver.β_ileqg,
-                        adaptive_ϵ_init=ce_solver.ϵ_init_auto_ileqg,
-                        ϵ_init=ce_solver.ϵ_init_ileqg,
-                        ϵ_min=ce_solver.ϵ_min_ileqg,
-                        f_returns_jacobian=ce_solver.f_returns_jacobian)
+                        μ_min=solver.μ_min_ileqg,
+                        Δ_0=solver.Δ_0_ileqg,
+                        λ=solver.λ_ileqg,
+                        d=solver.d_ileqg,
+                        iter_max=solver.iter_max_ileqg,
+                        # β=solver.β_ileqg,
+                        adaptive_ϵ_init=solver.ϵ_init_auto_ileqg,
+                        ϵ_init=solver.ϵ_init_ileqg,
+                        ϵ_min=solver.ϵ_min_ileqg,
+                        f_returns_jacobian=solver.f_returns_jacobian)
     #initialize!(ileqg, problem, x, u_array, θ)
     value = 0.0
     try
@@ -170,7 +170,7 @@ end
 """
 Compute iLEQG values in parallel on multiple worker processes
 """
-function compute_cost(ce_solver::CrossEntropyBilevelOptimizationSolver,
+function compute_cost(solver::RATiLQRSolver,
                       problem::FiniteHorizonAdditiveGaussianProblem,
                       x::Vector{Float64},
                       u_array::Vector{Vector{Float64}},
@@ -187,7 +187,7 @@ function compute_cost(ce_solver::CrossEntropyBilevelOptimizationSolver,
         for ii = 1 : num_samples
             @inbounds @async value_array[ii] =
                 remotecall_fetch(compute_value_worker, proc_id_array[ii],
-                                ce_solver, problem, x, u_array, θ_array[ii])
+                                solver, problem, x, u_array, θ_array[ii])
         end
     end
     cost_array = value_array .+ kl_bound./θ_array
@@ -195,26 +195,26 @@ function compute_cost(ce_solver::CrossEntropyBilevelOptimizationSolver,
 end
 
 # For debugging only. It should work in the same way as compute_cost
-function compute_cost_serial(ce_solver::CrossEntropyBilevelOptimizationSolver,
+function compute_cost_serial(solver::RATiLQRSolver,
                              problem::FiniteHorizonAdditiveGaussianProblem,
                              x::Vector{Float64},
                              u_array::Vector{Vector{Float64}},
                              θ_array::Vector{Float64},
                              kl_bound::Float64)
-    @assert length(θ_array) == ce_solver.num_samples
-    cost_array = Vector{Float64}(undef, ce_solver.num_samples)
-    for ii = 1 : ce_solver.num_samples
+    @assert length(θ_array) == solver.num_samples
+    cost_array = Vector{Float64}(undef, solver.num_samples)
+    for ii = 1 : solver.num_samples
         ileqg_solver = ILEQGSolver(problem,
-                                   μ_min=ce_solver.μ_min_ileqg,
-                                   Δ_0=ce_solver.Δ_0_ileqg,
-                                   λ=ce_solver.λ_ileqg,
-                                   d=ce_solver.d_ileqg,
-                                   iter_max=ce_solver.iter_max_ileqg,
-                                   # β=ce_solver.β_ileqg,
-                                   adaptive_ϵ_init=ce_solver.ϵ_init_auto_ileqg,
-                                   ϵ_init=ce_solver.ϵ_init_ileqg,
-                                   ϵ_min=ce_solver.ϵ_min_ileqg,
-                                   f_returns_jacobian=ce_solver.f_returns_jacobian)
+                                   μ_min=solver.μ_min_ileqg,
+                                   Δ_0=solver.Δ_0_ileqg,
+                                   λ=solver.λ_ileqg,
+                                   d=solver.d_ileqg,
+                                   iter_max=solver.iter_max_ileqg,
+                                   # β=solver.β_ileqg,
+                                   adaptive_ϵ_init=solver.ϵ_init_auto_ileqg,
+                                   ϵ_init=solver.ϵ_init_ileqg,
+                                   ϵ_min=solver.ϵ_min_ileqg,
+                                   f_returns_jacobian=solver.f_returns_jacobian)
         #initialize!(ileqg_solver, problem, x, u_array, θ_array[ii])
         try
             cost_array[ii] = solve!(ileqg_solver, problem, x, u_array, θ=θ_array[ii], verbose=false)[4] +
@@ -249,63 +249,63 @@ end
 """
 Single iteration of RATiLQR
 """
-function step!(ce_solver::CrossEntropyBilevelOptimizationSolver,
+function step!(solver::RATiLQRSolver,
                problem::FiniteHorizonAdditiveGaussianProblem,
                x::Vector{Float64},
                u_array::Vector{Vector{Float64}},
                kl_bound::Float64,
                rng::AbstractRNG,
                verbose=true, serial=false)
-    ce_solver.iter_current += 1;
+    solver.iter_current += 1;
     if verbose
-        println("**CE iteration $(ce_solver.iter_current)")
+        println("**CE iteration $(solver.iter_current)")
     end
     θ_array = Float64[];
     costs_array = Float64[];
     while true
-        if ce_solver.iter_current == 1
+        if solver.iter_current == 1
             # draw from N(μ_init, σ_init)
             # if too few valid samples, then adjust μ_init, σ_init and redraw.
             # if all samples are valid, then increase μ_init, σ_init for the next iteration.
             if verbose
-                println("****Drawing $(ce_solver.num_samples) positive samples of θ ~ N($(round(ce_solver.μ_init,digits=4)), $(round(ce_solver.σ_init,digits=4)))");
+                println("****Drawing $(solver.num_samples) positive samples of θ ~ N($(round(solver.μ_init,digits=4)), $(round(solver.σ_init,digits=4)))");
             end
-            θ_array = get_positive_samples(ce_solver.μ_init, ce_solver.σ_init, ce_solver.num_samples, rng);
+            θ_array = get_positive_samples(solver.μ_init, solver.σ_init, solver.num_samples, rng);
         else
             if verbose
-                println("****Drawing $(ce_solver.num_samples) positive samples of θ ~ N($(round(ce_solver.μ,digits=4)), $(round(ce_solver.σ,digits=4)))");
+                println("****Drawing $(solver.num_samples) positive samples of θ ~ N($(round(solver.μ,digits=4)), $(round(solver.σ,digits=4)))");
             end
-            θ_array = get_positive_samples(ce_solver.μ, ce_solver.σ, ce_solver.num_samples, rng);
+            θ_array = get_positive_samples(solver.μ, solver.σ, solver.num_samples, rng);
         end
         if verbose
             println("****Evaluating costs of sampled points")
         end
         if !serial
-            costs_array = compute_cost(ce_solver, problem, x, u_array, θ_array, kl_bound)
+            costs_array = compute_cost(solver, problem, x, u_array, θ_array, kl_bound)
         else
-            costs_array = compute_cost_serial(ce_solver, problem, x, u_array, θ_array, kl_bound)
+            costs_array = compute_cost_serial(solver, problem, x, u_array, θ_array, kl_bound)
         end
         if verbose
             println(costs_array)
         end
         num_inf = sum(isinf.(costs_array));
-        num_valid = ce_solver.num_samples - num_inf;
-        if ce_solver.iter_current == 1 && num_valid < max(ce_solver.num_elite, ce_solver.num_samples*ce_solver.λ)
+        num_valid = solver.num_samples - num_inf;
+        if solver.iter_current == 1 && num_valid < max(solver.num_elite, solver.num_samples*solver.λ)
             if verbose
-                println("******$(num_inf)/$(ce_solver.num_samples) samples are Inf. Redrawing samples")
+                println("******$(num_inf)/$(solver.num_samples) samples are Inf. Redrawing samples")
             end
-            ce_solver.μ_init *= ce_solver.λ
-            ce_solver.σ_init *= ce_solver.λ
-        elseif ce_solver.iter_current == 1 && num_valid == ce_solver.num_samples
-            ce_solver.μ_init /= ce_solver.λ
-            ce_solver.σ_init /= ce_solver.λ
+            solver.μ_init *= solver.λ
+            solver.σ_init *= solver.λ
+        elseif solver.iter_current == 1 && num_valid == solver.num_samples
+            solver.μ_init /= solver.λ
+            solver.σ_init /= solver.λ
             if verbose
-                println("******Increasing μ_init to $(ce_solver.μ_init) and σ_init to $(ce_solver.σ_init)")
+                println("******Increasing μ_init to $(solver.μ_init) and σ_init to $(solver.σ_init)")
             end
             break
-        elseif num_valid >= max(ce_solver.num_elite, ce_solver.num_samples*ce_solver.λ)
+        elseif num_valid >= max(solver.num_elite, solver.num_samples*solver.λ)
             if verbose
-                println("******$(num_valid)/$(ce_solver.num_samples) samples are valid")
+                println("******$(num_valid)/$(solver.num_samples) samples are valid")
             end
             break
         end
@@ -315,33 +315,33 @@ function step!(ce_solver::CrossEntropyBilevelOptimizationSolver,
         if isinf(costs_array[ii])
             continue
         else
-            if θ_array[ii] < ce_solver.θ_min
-                ce_solver.θ_min = θ_array[ii]
-            elseif θ_array[ii] > ce_solver.θ_max
-                ce_solver.θ_max = θ_array[ii]
+            if θ_array[ii] < solver.θ_min
+                solver.θ_min = θ_array[ii]
+            elseif θ_array[ii] > solver.θ_max
+                solver.θ_max = θ_array[ii]
             end
         end
     end
 
     θ_cost_pair_array = collect(zip(θ_array, costs_array));
     θ_cost_pair_sorted_array = sort(θ_cost_pair_array, by=x->x[2]);
-    θ_elite_array = [pair[1] for pair in θ_cost_pair_sorted_array[1 : ce_solver.num_elite]];
-    μ_new = sum(θ_elite_array)/ce_solver.num_elite;
-    σ_new = sqrt(sum((θ_elite_array .- μ_new).^2)/ce_solver.num_elite)
+    θ_elite_array = [pair[1] for pair in θ_cost_pair_sorted_array[1 : solver.num_elite]];
+    μ_new = sum(θ_elite_array)/solver.num_elite;
+    σ_new = sqrt(sum((θ_elite_array .- μ_new).^2)/solver.num_elite)
     if verbose
         println("****Updated with μ_new: $(round(μ_new,digits=4)) and σ_new: $(round(σ_new,digits=4))")
     end
-    ce_solver.μ, ce_solver.σ = μ_new, σ_new;
+    solver.μ, solver.σ = μ_new, σ_new;
 end
 
 
 """
-    solve!(ce_solver::CrossEntropyBilevelOptimizationSolver,
+    solve!(solver::RATiLQRSolver,
     problem::FiniteHorizonAdditiveGaussianProblem,
     x_0::Vector{Float64}, u_array::Vector{Vector{Float64}}, rng::AbstractRNG;
     kl_bound::Float64, verbose=true, serial=false)
 
-Given `problem` and `ce_solver` (i.e. a RAT iLQR Solver), solve distributionally robust
+Given `problem` and `solver` (i.e. a RAT iLQR Solver), solve distributionally robust
 control with current state `x_0` and nominal control schedule `u_array = [u_0, ..., u_{N-1}]`
 under the KL divergence bound of `kl_bound` (>= 0).
 
@@ -361,24 +361,24 @@ under the KL divergence bound of `kl_bound` (>= 0).
 - If `serial` is `true`, Monte Carlo sampling of the Cross Entropy method is serialized
   on a single process. If `false` it is distributed on all the available worker processes.
 """
-function solve!(ce_solver::CrossEntropyBilevelOptimizationSolver,
+function solve!(solver::RATiLQRSolver,
                 problem::FiniteHorizonAdditiveGaussianProblem,
                 x_0::Vector{Float64}, u_array::Vector{Vector{Float64}}, rng::AbstractRNG;
                 kl_bound::Float64, verbose=true, serial=false)
     @assert kl_bound >= 0 "KL Divergence Bound must be non-negative"
-    initialize!(ce_solver);
+    initialize!(solver);
     if kl_bound > 0
-        while ce_solver.iter_current < ce_solver.iter_max
-            step!(ce_solver, problem, x_0, u_array, kl_bound, rng, verbose, serial)
+        while solver.iter_current < solver.iter_max
+            step!(solver, problem, x_0, u_array, kl_bound, rng, verbose, serial)
         end
-        θ_min, θ_max = ce_solver.θ_min, ce_solver.θ_max;
-        if ce_solver.use_θ_max
+        θ_min, θ_max = solver.θ_min, solver.θ_max;
+        if solver.use_θ_max
             θ_opt = θ_max
             if verbose
-                println("Using θ_max = $(round(θ_max, digits=4)) in place of μ = $(round(ce_solver.μ, digits=4))")
+                println("Using θ_max = $(round(θ_max, digits=4)) in place of μ = $(round(solver.μ, digits=4))")
             end
         else
-            θ_opt = ce_solver.μ
+            θ_opt = solver.μ
         end
         if verbose
             println("Maximum iteration number reached. θ_opt = $(round(θ_opt,digits=4)) from [$(round(θ_min,digits=4)), $(round(θ_max,digits=4))]")
@@ -390,16 +390,16 @@ function solve!(ce_solver::CrossEntropyBilevelOptimizationSolver,
     while true
         try
             ileqg_solver = ILEQGSolver(problem,
-                                       μ_min=ce_solver.μ_min_ileqg,
-                                       Δ_0=ce_solver.Δ_0_ileqg,
-                                       λ=ce_solver.λ_ileqg,
-                                       d=ce_solver.d_ileqg,
-                                       iter_max=ce_solver.iter_max_ileqg,
-                                       # β=ce_solver.β_ileqg,
-                                       adaptive_ϵ_init=ce_solver.ϵ_init_auto_ileqg,
-                                       ϵ_init=ce_solver.ϵ_init_ileqg,
-                                       ϵ_min=ce_solver.ϵ_min_ileqg,
-                                       f_returns_jacobian=ce_solver.f_returns_jacobian)
+                                       μ_min=solver.μ_min_ileqg,
+                                       Δ_0=solver.Δ_0_ileqg,
+                                       λ=solver.λ_ileqg,
+                                       d=solver.d_ileqg,
+                                       iter_max=solver.iter_max_ileqg,
+                                       # β=solver.β_ileqg,
+                                       adaptive_ϵ_init=solver.ϵ_init_auto_ileqg,
+                                       ϵ_init=solver.ϵ_init_ileqg,
+                                       ϵ_min=solver.ϵ_min_ileqg,
+                                       f_returns_jacobian=solver.f_returns_jacobian)
             #initialize!(ileqg_solver, problem, x_0, u_array, θ_opt)
             x_array, l_array, L_array, value, ~ = solve!(ileqg_solver, problem, x_0, u_array, θ=θ_opt, verbose=verbose)
             if kl_bound > 0
@@ -408,8 +408,8 @@ function solve!(ce_solver::CrossEntropyBilevelOptimizationSolver,
                 return θ_opt, x_array, l_array, L_array, value, 0.0, 0.0
             end
         catch
-            @warn "θ_opt == $(θ_opt) resulted in neurotic breakdown. Re-trying with θ_opt == $(max(0.0, θ_opt - ce_solver.σ))"
-            θ_opt = max(0.0, θ_opt - ce_solver.σ)
+            @warn "θ_opt == $(θ_opt) resulted in neurotic breakdown. Re-trying with θ_opt == $(max(0.0, θ_opt - solver.σ))"
+            θ_opt = max(0.0, θ_opt - solver.σ)
         end
     end
 end
