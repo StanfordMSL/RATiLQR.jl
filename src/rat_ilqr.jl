@@ -1,8 +1,8 @@
 #///////////////////////////////////////
-#// File Name: cross_entropy_bilevel_optimization.jl
+#// File Name: rat_ilqr.jl
 #// Author: Haruki Nishimura (hnishimura@stanford.edu)
 #// Date Created: 2020/10/28
-#// Description: Cross Entropy Bilevel Optimization (RATiLQR) algorithm
+#// Description:  Risk Auto-Tuning iterative LQR (RATiLQR, Cross Entropy + iLEQG) algorithm
 #///////////////////////////////////////
 
 using Random

@@ -1,8 +1,8 @@
 #///////////////////////////////////////
-#// File Name: cross_entropy_bilevel_optimization_test.jl
+#// File Name: rat_ilqr_test.jl
 #// Author: Haruki Nishimura (hnishimura@stanford.edu)
 #// Date Created: 2020/11/03
-#// Description: Test code for src/cross_entropy_bilevel_optimization.jl
+#// Description: Test code for src/rat_ilqr.jl
 #///////////////////////////////////////
 
 using Test

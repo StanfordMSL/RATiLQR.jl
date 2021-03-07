@@ -50,7 +50,7 @@ export
     get_positive_samples,
     step!,
     solve!
-include("cross_entropy_bilevel_optimization.jl")
+include("rat_ilqr.jl")
 
 # PETS (Cross Entropy Method with Stochastic Sampling of Dynamics)
 export

@@ -18,7 +18,7 @@ end
 @info "Executing iLEQG Test"
 include("ileqg_test.jl")
 @info "Executing RAT iLQR Test"
-include("cross_entropy_bilevel_optimization_test.jl")
+include("rat_ilqr_test.jl")
 @info "Executing PETS Test"
 include("pets_test.jl")
 end
