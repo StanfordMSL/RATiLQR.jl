@@ -16,14 +16,14 @@ Part of our iLQG and iLEQG implementations are based on the following papers:
 - M. Wang, N. Mehr, A. Gaidon, and M. Schwager, "Game-theoretic planning for risk-aware interactive agents," in *2020 IEEE/RSJ International Conference on Intelligent Robots and Systems*. IEEE, 2020, pp.6998--7005.
 
 
-RAT iLQR, RAT iLQR++
---------------------
+RAT iLQR
+--------
 
 The RAT iLQR algorithm is originally presented in our paper:
 
 - H. Nishimura, N. Mehr, A. Gaidon, and M. Schwager, "Rat ilqr: a risk auto-tuning controller to optimally account for stochastic model mismatch," *IEEE Robotics and Automation Letters*. IEEE, 2021.
 
-We used the following textbook as a reference to implement the Cross Entropy Method and the Nelder-Mead Simplex Method:
+We used the following textbook as a reference to implement the Cross Entropy Method:
 
 - M. J. Kochenderfer and T. A. Wheeler, *Algorithms for optimization*. The MIT Press, 2019.
 

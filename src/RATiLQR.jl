@@ -10,6 +10,8 @@ module RATiLQR
 using Distributions
 using Distributed
 import Future.randjump
+import StatsFuns.logsumexp
+using DataStructures
 using ForwardDiff
 using LinearAlgebra
 using Printf
@@ -64,5 +66,18 @@ export
     step!,
     solve!
 include("pets.jl")
+
+# Risk AUto-Tuning Cross Entropy Method
+export
+    RATCEMSolver,
+    initialize!,
+    compute_cost_worker,
+    compute_cost,
+    compute_cost_serial,
+    compute_risk,
+    get_elite_samples,
+    step!,
+    solve!
+include("rat_cem.jl")
 
 end # module

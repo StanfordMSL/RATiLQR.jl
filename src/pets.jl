@@ -11,6 +11,8 @@ using LinearAlgebra
 
 using Distributed
 import Future.randjump
+
+
 """
     PETSSolver(μ_init_array::Vector{Vector{Float64}},
     Σ_init_array::Vector{Matrix{Float64}}; kwargs...)
@@ -76,7 +78,7 @@ function PETSSolver(μ_init_array::Vector{Vector{Float64}},
     return PETSSolver(num_control_samples, deterministic_dynamics,
                       num_trajectory_samples, num_elite,
                       iter_max, smoothing_factor, mean_carry_over,
-                      μ_init_array, Σ_init_array,
+                      copy(μ_init_array), copy(Σ_init_array),
                       μ_array, Σ_array, N, iter_current)
 end;
 

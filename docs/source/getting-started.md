@@ -99,10 +99,10 @@ model = SingleIntegratorLQRModel();
 
 # Define an OptimalControlProblem.
 N = 10; # final time index. Note that the initial time is 0.
-problem = FiniteHorizonRiskSensitiveOptimalControlProblem(model.f, model.c, model.h, model.W, N)
+problem = FiniteHorizonAdditiveGaussianProblem(model.f, model.c, model.h, model.W, N)
 
 # Instantiate a RAT iLQR solver.
-solver = CrossEntropyBilevelOptimizationSolver();
+solver = RATiLQRSolver();
 
 # Solve problem to obtain a feedback control policy: π_k(x) = L_k(x - x_k) + l_k.
 rng = MersenneTwister(12345); # pseudo random number generator for the Cross Entropy method

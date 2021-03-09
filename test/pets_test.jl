@@ -12,9 +12,9 @@ using Random
 
 @testset "PETS Test" begin
 
-    f_stochastic(x, u, rng, deterministic=false) = x + u + rand(rng, length(x))
-    c(k, x, u) = sum(abs.(u));
-    h(x) = 1.0;
+    @everywhere f_stochastic(x, u, rng, deterministic=false) = x + u + rand(rng, length(x))
+    @everywhere c(k, x, u) = sum(abs.(u));
+    @everywhere h(x) = 1.0;
     N = 20;
 
     problem = FiniteHorizonGenerativeProblem(f_stochastic, c, h, N);

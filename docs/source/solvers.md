@@ -12,21 +12,14 @@ RAT iLQR Solver
 ---------------
 
 ```@docs
-CrossEntropyBilevelOptimizationSolver
-```
-
-RAT iLQR++ Solver
------------------
-
-```@docs
-NelderMeadBilevelOptimizationSolver
+RATiLQRSolver
 ```
 
 PETS Solver
 -----------
 
 ```@docs
-CrossEntropyDirectOptimizationSolver
+PETSSolver
 ```
 
 The `solve!` Function
@@ -37,4 +30,3 @@ Once a problem is defined and a solver is instantiated, you can call `solve!` wi
 ```@docs
 solve!
 ```
-

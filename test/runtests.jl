@@ -21,4 +21,6 @@ include("ileqg_test.jl")
 include("rat_ilqr_test.jl")
 @info "Executing PETS Test"
 include("pets_test.jl")
+@info "Executing RAT CEM Test"
+include("rat_cem_test.jl")
 end

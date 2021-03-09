@@ -34,25 +34,25 @@ statistics and dynamics models.
 
 - Objective: $\mathbb{E}[J]$
 - Dynamics: $f(x_k, u_k, w_k) = f(x_k, u_k) + w_k, ~ w_k \sim \mathcal{N}(0, W_k)$
-- Definition: [`FiniteHorizonRiskSensitiveOptimalControlProblem`](@ref)
+- Definition: [`FiniteHorizonAdditiveGaussianProblem`](@ref)
 - Solvers: [`ILEQGSolver`](@ref)
 
 ### 2. Standard Problem with Arbitrary Noise
 
 - Objective: $\mathbb{E}[J]$
 - Dynamics: $f(x_k, u_k, w_k)$ where $w_k$ has an arbitrary distribution.
-- Definition: [`FiniteHorizonGenerativeOptimalControlProblem`](@ref)
-- Solvers: [`CrossEntropyDirectOptimizationSolver`](@ref)
+- Definition: [`FiniteHorizonGenerativeProblem`](@ref)
+- Solvers: [`PETSSolver`](@ref)
 
 ### 3. Risk-Sensitive Problem with Gaussian Noise
 
 - Objective: $\frac{1}{\theta}\log\left(\mathbb{E}[\exp(\theta J)]\right)$ where $\theta > 0$
   denotes the risk-sensitivity parameter and is user-specified.
 - Dynamics: $f(x_k, u_k, w_k) = f(x_k, u_k) + w_k, ~ w_k \sim \mathcal{N}(0, W_k)$
-- Definition: [`FiniteHorizonRiskSensitiveOptimalControlProblem`](@ref)
+- Definition: [`FiniteHorizonAdditiveGaussianProblem`](@ref)
 - Solvers: [`ILEQGSolver`](@ref)
- 
-### 4. Distributionally-Robust Problem
+
+### 4. Distributionally-Robust Problem with Arbitrary Noise but with Gaussian Noise Model
 
 - Objective: $\max_{p \in \Xi} \mathbb{E}_p [J]$ where $p$ denotes the true, potentially unknown 
   distribution over the noise variables $w_{0:N-1}$ and $\Xi$ is the ambiguity set that encodes how
@@ -67,15 +67,16 @@ statistics and dynamics models.
   where $d > 0$ is a user-specified constant that defines an upper bound.
 - Dynamics: $f(x_k, u_k, w_k) = f(x_k, u_k) + w_k$ where $w_{0:N-1}$ can have an arbitrary distribution
   as long as it is within the ambiguity set defined by the Gaussian model.
-- Definition: [`FiniteHorizonRiskSensitiveOptimalControlProblem`](@ref)
-- Solvers: [`CrossEntropyBilevelOptimizationSolver`](@ref), [`NelderMeadBilevelOptimizationSolver`](@ref)
+- Definition: [`FiniteHorizonAdditiveGaussianProblem`](@ref)
+- Solvers: [`RATiLQRSolver`](@ref)
+
 
 Problem Definition APIs
 -----------------------
 
 ```@docs
 OptimalControlProblem
-FiniteHorizonRiskSensitiveOptimalControlProblem
-FiniteHorizonGenerativeOptimalControlProblem
+FiniteHorizonAdditiveGaussianProblem
+FiniteHorizonGenerativeProblem
 ```
 
