@@ -10,12 +10,12 @@ module RATiLQR
 using Distributions
 using Distributed
 import Future.randjump
-import StatsFuns.logsumexp
 using DataStructures
 using ForwardDiff
 using LinearAlgebra
 using Printf
 using Random
+using SparseArrays
 using Statistics
 
 # Optimal Control Problems
@@ -71,11 +71,16 @@ include("pets.jl")
 export
     RATCEMSolver,
     initialize!,
-    compute_cost_worker,
+    JointAffineDynamicsModel,
+    get_joint_affine_dynamics,
+    JointQuadraticCostModel,
+    get_joint_quadratic_cost,
+    get_open_loop_value,
+    compute_value_worker,
     compute_cost,
     compute_cost_serial,
-    compute_risk,
     get_elite_samples,
+    compute_new_distribution,
     step!,
     solve!
 include("rat_cem.jl")

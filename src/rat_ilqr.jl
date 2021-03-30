@@ -317,7 +317,8 @@ function step!(solver::RATiLQRSolver,
         else
             if θ_array[ii] < solver.θ_min
                 solver.θ_min = θ_array[ii]
-            elseif θ_array[ii] > solver.θ_max
+            end
+            if θ_array[ii] > solver.θ_max
                 solver.θ_max = θ_array[ii]
             end
         end

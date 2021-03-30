@@ -6,183 +6,299 @@
 #///////////////////////////////////////
 
 
-using LinearAlgebra
+@everywhere using LinearAlgebra
 using Statistics
 using Random
 
+@everywhere mutable struct TestModel
+    Q::Matrix{Float64}
+    P::Matrix{Float64}
+    R::Matrix{Float64}
+    q_vec::Vector{Float64}
+    r::Vector{Float64}
+    q::Float64
+    f::Function
+    c::Union{Nothing, Function}
+    h::Union{Nothing, Function}
+    W::Function
+
+    function f(x, u, f_returns_jacobian=false)
+        A = [1.2 0.3 -0.5;
+             0.2 0.8 -0.2;
+             0.1 0.2  1.1];#Matrix(1.0I, length(x), length(x));
+        B = [0.8 -0.3;
+             0.5 -0.5;
+             1.2  0.3];#zeros(length(x), length(u))
+        return f_returns_jacobian ? (A*x + B*u, A, B) : A*x + B*u
+    end
+
+    function c(model, k, x, u)
+        return 0.5*x'*model.Q*x + 0.5*u'*model.R*u + u'*model.P*x +
+               model.q_vec'*x + model.r'*u + model.q
+    end
+
+    function h(model, x)
+        return 0.5*x'*model.Q*x + model.q_vec'*x;
+    end
+
+    function W(k)
+        return Matrix(0.05I, 3, 3);
+    end
+
+    function TestModel(Q, P, R, q_vec, r, q)
+        this = new(Q, P, R, q_vec, r, q, f, nothing, nothing, W);
+        this.c = (k, x, u) -> c(this, k, x, u);
+        this.h = (x) -> h(this, x);
+        return this;
+    end
+end
+
 @testset "RAT CEM Test" begin
+    Q_g = [ 1.0 -0.5 1.0;
+         -0.5  3.0 0.2;
+          1.0  0.2 9.0];
+    P_g = [0.4 0.1 0.3;
+           0.2 0.3 0.2];
+    R_g = [0.5 0.0;
+           0.0 0.5];
+    q_vec_g = [-1.0, -3.0, -2.0];
 
-    @everywhere f_stochastic(x, u, rng, deterministic=false) = x + u + rand(rng, length(x))
-    @everywhere c(k, x, u) = sum(abs.(u));
-    @everywhere h(x) = 1.0;
-    N = 20;
+    r_g = [-0.4, -0.2];
 
-    problem = FiniteHorizonGenerativeProblem(f_stochastic, c, h, N);
+    q_g = 2.0;
+
+    # get_joint_affine_dynamics test
+    begin
+          model = TestModel(Q_g, P_g, R_g, q_vec_g, r_g, q_g);
+          N = 4;
+
+          problem = FiniteHorizonAdditiveGaussianProblem(model.f, model.c, model.h, model.W, N);
+
+          x_init = [0.1, 0.9, -3.0];
+          u_array = [[2.0, -2.0], [1.0, 0.4], [-0.3, 0.5], [1.0, 1.0]];
+
+          x_array, A_array, B_array =
+          simulate_dynamics(problem, x_init, u_array, f_returns_jacobian=true);
+
+          approx_result =
+          approximate_model(problem, u_array, x_array, A_array, B_array);
+
+          joint_dynamics_model = get_joint_affine_dynamics(approx_result, x_array, u_array);
+
+          x_vec_test = joint_dynamics_model.E*vcat(u_array...) + joint_dynamics_model.g;
+          @test all(x_vec_test .≈ vcat(x_array...));
+
+          w_array = [[3.0, 1.0, -4.0], [0.3, 1.3, 0.5], [-0.5, -0.5, 0.3], [1.0, 1.1, -1.0]]
+          x_array_noisy = [x_init];
+          for ii = 1 : length(u_array)
+              push!(x_array_noisy, model.f(x_array_noisy[end], u_array[ii]) + w_array[ii])
+          end
+
+          approx_result =
+          approximate_model(problem, u_array, x_array, A_array, B_array);
+
+          joint_dynamics_model = get_joint_affine_dynamics(approx_result, x_array, u_array);
+
+          x_vec_test = joint_dynamics_model.E*vcat(u_array...) +
+                 joint_dynamics_model.F*vcat(w_array...) + joint_dynamics_model.g;
+          @test all(x_vec_test .≈ vcat(x_array_noisy...))
+    end
+
+    # get_joint_quadratic_cost test
+    begin
+          model = TestModel(Q_g, P_g, R_g, q_vec_g, r_g, q_g);
+          N = 1;
+
+          problem = FiniteHorizonAdditiveGaussianProblem(model.f, model.c, model.h, model.W, N);
+
+          x_init = [0.1, 0.9, -3.0];
+          u_array = [[2.0, -2.0]];
+
+          x_array, A_array, B_array =
+          simulate_dynamics(problem, x_init, u_array, f_returns_jacobian=true);
+
+          approx_result =
+          approximate_model(problem, u_array, x_array, A_array, B_array);
+
+          joint_cost_model = get_joint_quadratic_cost(problem, approx_result, x_array, u_array);
+
+          x_joint_test = [3.0, 2.0, 0.1, -0.3, -0.5, 1.0];
+          u_joint_test = [-3.0, 2.0];
+
+          cost_true = model.c(0, x_joint_test[1:3], u_joint_test) + model.h(x_joint_test[4:6])
+
+          cost_test_1 = 0.5*(x_joint_test - vcat(x_array...))'*joint_cost_model.Q*(x_joint_test - vcat(x_array...)) +
+          0.5*(u_joint_test - vcat(u_array...))'*joint_cost_model.R*(u_joint_test - vcat(u_array...)) +
+          (u_joint_test - vcat(u_array...))'*joint_cost_model.P*(x_joint_test - vcat(x_array...)) +
+          (x_joint_test - vcat(x_array...))'*vcat(approx_result.q_vec_array...) +
+          (u_joint_test - vcat(u_array...))'*vcat(approx_result.r_array...) +
+          sum(approx_result.q_array)
+          @test cost_test_1 ≈ cost_true
+          @test all(Matrix(joint_cost_model.Q) .≈ [model.Q zeros(3, 3);
+                                                   zeros(3, 3) model.Q])
+          @test all(Matrix(joint_cost_model.R) .≈ model.R)
+          @test all(Matrix(joint_cost_model.P) .≈ [model.P zeros(2, 3)])
+          @test Matrix(joint_cost_model.W) == Matrix(0.05I, 3, 3)
+          @test all(joint_cost_model.q_vec .≈ vcat([q_vec_g; q_vec_g]))
+          @test all(joint_cost_model.r .≈ r_g)
+          @test joint_cost_model.q .≈ q_g
+
+          cost_test_2 =
+          0.5*x_joint_test'*joint_cost_model.Q*x_joint_test +
+          0.5*u_joint_test'*joint_cost_model.R*u_joint_test +
+          u_joint_test'*joint_cost_model.P*x_joint_test +
+          x_joint_test'*joint_cost_model.q_vec +
+          u_joint_test'*joint_cost_model.r +
+          joint_cost_model.q
+          @test cost_test_2 ≈ cost_true
+    end
+
+    # get_open_loop_value test
+    begin
+          model = TestModel(Q_g, P_g, R_g, q_vec_g, r_g, q_g);
+          N = 4;
+
+          problem = FiniteHorizonAdditiveGaussianProblem(model.f, model.c, model.h, model.W, N);
+
+          x_init = [0.1, 0.9, -3.0];
+          u_array = [[2.0, -2.0], [1.0, 0.4], [-0.3, 0.5], [1.0, 1.0]];
+
+          value = get_open_loop_value(problem, x_init, u_array, f_returns_jacobian=true);
+          #@benchmark get_open_loop_value(problem, x_init, u_array, f_returns_jacobian=true)
+          value2 = get_open_loop_value(problem, x_init, u_array, f_returns_jacobian=true, θ=1e-9);
+          @test isapprox(value, value2, atol=1e-4);
+
+          #=rng = MersenneTwister(1234567);
+          M = 5000000;
+          sampled_cost_array = zeros(M);
+
+          @showprogress for ii = 1 : M
+              sampled_cost_array[ii] =
+              integrate_cost(problem,
+                             simulate_dynamics(problem, x_init, u_array, rng),
+                             u_array);
+          end
+          println(mean(sampled_cost_array));=#
+    end
 
     # RATCEMSolver test
-    μ_init_array = [zeros(2) for ii = 1 : N];
-    Σ_init_array = [Matrix(1.0I, 2, 2) for ii = 1 : N];
+    model = TestModel(Q_g, P_g, R_g, q_vec_g, r_g, q_g);
+    N = 4;
+
+    x_0 = zeros(3)
+
+    problem = FiniteHorizonAdditiveGaussianProblem(model.f, model.c, model.h, model.W, N)
+
+    μ_init_array = [0.1*ones(2) for ii = 1 : N];
+    Σ_init_array = [diagm([0.5, 0.5]) for ii = 1 : N];
+
     solver = RATCEMSolver(μ_init_array, Σ_init_array,
-                          num_control_samples=100, deterministic_dynamics=false,
-                          num_trajectory_samples=20,
-                          μ_θ_init=1.0, σ_θ_init=2.0, num_risk_samples=20,
-                          num_elite=50, iter_max=5, smoothing_factor=0.1,
-                          mean_carry_over=false);
+                          num_control_samples=3, μ_θ_init=1.0, σ_θ_init=2.0, λ_θ=0.5,
+                          num_risk_samples=3, num_elite=3, iter_max=3,
+                          smoothing_factor=0.1, u_mean_carry_over=false,
+                          f_returns_jacobian=false);
     @test solver.N == N
     @test solver.iter_current == 0;
     @test solver.μ_array == μ_init_array
     @test solver.Σ_array == Σ_init_array
-    @test solver.μ_θ == 1.0
-    @test solver.σ_θ == 2.0
+    @test solver.μ_θ == solver.μ_θ_init
+    @test solver.σ_θ == solver.σ_θ_init
 
     solver.iter_current = 10;
     solver.μ_array = [ones(2) for ii = 1 : N];
     solver.Σ_array = [Matrix(0.1I, 2, 2) for ii = 1 : N];
-    solver.μ_θ = 3.0
-    solver.σ_θ = 3.0
+    solver.μ_θ = 0.01;
+    solver.σ_θ = 0.1;
     initialize!(solver)
-
     @test solver.iter_current == 0;
     @test solver.μ_array == μ_init_array
     @test solver.Σ_array == Σ_init_array
-    @test solver.μ_θ == 1.0
-    @test solver.σ_θ == 2.0
+    @test solver.μ_θ == solver.μ_θ_init
+    @test solver.σ_θ == solver.σ_θ_init
 
-    # compute_cost_serial test
-    rng = MersenneTwister(1234);
-    control_sequence_array = [[rand(rng, 2) for tt = 1 : N] for
-                              ii = 1 : solver.num_control_samples];
-    x_init = zeros(2);
-    sampled_cost_arrays_serial =
-        compute_cost_serial(solver, problem, x_init, control_sequence_array, rng);
-    @test length(sampled_cost_arrays_serial) == solver.num_control_samples
-    @test all([length(cost_array) == solver.num_trajectory_samples for
-               cost_array in sampled_cost_arrays_serial])
     # compute_cost test
-    sampled_cost_arrays = compute_cost(solver, problem, x_init, control_sequence_array, rng);
-    @test all(sampled_cost_arrays .== sampled_cost_arrays_serial) # note that this holds because c is not dependent on x. Otherwise they'd be different.
+    control_sequence_array =
+       [[[0.1, -2.0], [1.3, 1.0], [-0.2, 0.4], [0.2, 0.3]],
+        [[-1.2, 0.2], [0.5, 0.4], [-0.8, 0.1], [0.1, 0.3]],
+        [[0.5,  0.8], [0.1, 0.1], [0.3, -1.2], [0.3, -0.9]]];
+    θ_array = [0.05, 0.1, 0.2];
+    kl_bound = 1.0;
+    cost_matrix = compute_cost(solver, problem, x_0, control_sequence_array, θ_array, kl_bound);
+    cost_matrix_test = compute_cost_serial(solver, problem, x_0, control_sequence_array, θ_array, kl_bound)
+    @test all(cost_matrix .≈ cost_matrix_test)
 
-    rng = MersenneTwister(1234);
-    @test length(sampled_cost_arrays) == solver.num_control_samples
-    @test all([length(cost_array) == solver.num_trajectory_samples for cost_array in sampled_cost_arrays])
-    for ii = 1 : solver.num_control_samples
-        x = x_init;
-        cost = 0.0;
-        for tt = 1 : solver.N
-            cost += problem.c(tt - 1, x, control_sequence_array[ii][tt])
-            x = problem.f_stochastic(x, control_sequence_array[ii][tt], rng)
-        end
-        cost += problem.h(x)
-        @test all([cost ≈ sampled_cost for sampled_cost in sampled_cost_arrays[ii]])
-    end
-
-    # compute_risk test
-    risk_test = compute_risk([1.0, 2.0, 3.0, 4.0], 0.5)
-    @test risk_test ≈ 2.0*log(mean([exp(0.5*J) for J in [1.0, 2.0, 3.0, 4.0]]))
-
-    # get_elite_samples_test
-    @everywhere c(k, x, u) = 0.05*x'*x + 0.001*u'*u;
-    @everywhere h(x) = 0.05*x'*x;
-
-    problem = FiniteHorizonGenerativeProblem(f_stochastic, c, h, N);
-    sampled_cost_arrays_serial = compute_cost_serial(solver, problem, x_init, control_sequence_array, rng);
-    θ_array = [10.0*rand(rng) for ii = 1 : solver.num_risk_samples];
-    kl_bound = 2.0;
-    control_sequence_elite_idx_array, θ_elite_idx_array, obj_matrix =
-    get_elite_samples(solver, control_sequence_array, θ_array, sampled_cost_arrays_serial, kl_bound);
-    @test all([obj_matrix[ii, jj] ≈
-               compute_risk(sampled_cost_arrays_serial[ii], θ_array[jj]) + kl_bound/θ_array[jj]
-               for ii = 1 : solver.num_control_samples, jj = 1 : solver.num_risk_samples])
-
-    begin
-        obj_matrix_copied = copy(obj_matrix);
-        control_sequence_elite_idx_array_test = Vector{Int64}();
-        θ_elite_idx_array_test = Vector{Int64}();
-        for ii = 1 : solver.num_elite
-            u_idx, θ_idx = Tuple(findmin(obj_matrix_copied)[2])
-            push!(control_sequence_elite_idx_array_test, u_idx)
-            push!(θ_elite_idx_array_test, θ_idx)
-            obj_matrix_copied[u_idx, θ_idx] = Inf;
-        end
-        @test sort(control_sequence_elite_idx_array_test) == sort(control_sequence_elite_idx_array)
-        @test sort(θ_elite_idx_array_test) == sort(θ_elite_idx_array)
-    end
+    # get_elite_samples test
+    u_elite_idx_array, θ_elite_idx_array = get_elite_samples(solver, cost_matrix)
+    @test Set(u_elite_idx_array) == Set([1, 3, 3]);
+    @test Set(θ_elite_idx_array) == Set([1, 1, 2]);
 
     # compute_new_distribution test
-    control_sequence_elite_array = control_sequence_array[control_sequence_elite_idx_array];
-    θ_elite_array = θ_array[θ_elite_idx_array];
     μ_new_array, Σ_new_array, μ_θ_new, σ_θ_new =
-        compute_new_distribution(solver, control_sequence_elite_array, θ_elite_array);
+    compute_new_distribution(solver, control_sequence_array[u_elite_idx_array],
+                             θ_array[θ_elite_idx_array]);
 
-    @test length(μ_new_array) == solver.N;
-    @test all([length(μ) == length(x_init) for μ in μ_new_array])
-    @test length(Σ_new_array) == solver.N;
-    @test all([size(Σ) == (length(x_init), length(x_init)) for Σ in Σ_new_array])
-    for tt = 1 : solver.N
-        @test μ_new_array[tt] ≈ (1.0 - solver.smoothing_factor).*mean([control_sequence_elite_array[ii][tt] for ii = 1 : solver.num_elite]) +
-                                solver.smoothing_factor.*solver.μ_array[tt]
-        @test Σ_new_array[tt] ≈ (1.0 - solver.smoothing_factor).*Diagonal(var([control_sequence_elite_array[ii][tt] for ii = 1 : solver.num_elite])) +
-                                solver.smoothing_factor.*solver.Σ_array[tt]
-    end
+    mean_array = mean.([[u[ii] for u in control_sequence_array[u_elite_idx_array]] for ii = 1 : 4])
+    cov_array = diagm.(var.([[u[ii] for u in control_sequence_array[u_elite_idx_array]] for ii = 1 : 4]))
+    @test all(μ_new_array .≈ 0.9.*mean_array .+ 0.1.*solver.μ_array)
+    @test all(Σ_new_array .≈ 0.9.*cov_array .+ 0.1.*solver.Σ_array)
+    @test μ_θ_new ≈ mean(θ_array[θ_elite_idx_array])
+    @test σ_θ_new ≈ std(θ_array[θ_elite_idx_array], corrected=false)
 
-    @test μ_θ_new ≈ mean(θ_elite_array)
-    @test σ_θ_new ≈ std(θ_elite_array, corrected=false)
+    μ_new_array_2, Σ_new_array_2, μ_θ_new_2, σ_θ_new_2 =
+       compute_new_distribution(solver, control_sequence_array[[1, 1, 1]],
+                                θ_array[[1, 1, 1]]);
+
+    @test all(μ_new_array_2 .≈ 0.9.*control_sequence_array[1] .+ 0.1.*solver.μ_array)
+    @test all(Σ_new_array_2 .≈ 0.9.*diagm.([1e-6*ones(2) for ii = 1 : 4]) + 0.1.*solver.Σ_array)
+    @test μ_θ_new_2 ≈ θ_array[1]
+    @test σ_θ_new_2 ≈ 1e-3;
 
     # step! test
-    rng = MersenneTwister(1234);
-    step!(solver, problem, x_init, kl_bound, rng, false, false);
-    @test solver.iter_current == 1;
+    initialize!(solver);
+    rng = MersenneTwister(1234)
+    step!(solver, problem, x_0, kl_bound, rng, false, false)
+    @test !(solver.μ_θ_init ≈ 1.0)
+    @test !(solver.σ_θ_init ≈ 2.0)
+    @test solver.μ_θ > 0.0
+    @test solver.σ_θ > 0.0
+    @test solver.iter_current == 1
 
     # solve! test
-    control_array, ~, θ_opt, ~ = solve!(solver, problem, x_init, rng, kl_bound=kl_bound, verbose=false);
+    solver = RATCEMSolver(μ_init_array, Σ_init_array,
+                          num_control_samples=50, μ_θ_init=1.0, σ_θ_init=2.0, λ_θ=0.5,
+                          num_risk_samples=10, num_elite=30, iter_max=3,
+                          smoothing_factor=0.1, u_mean_carry_over=false,
+                          f_returns_jacobian=false);
+    rng = MersenneTwister(1234)
+    μ_array, Σ_array, μ_θ, σ_θ, θ_min, θ_max =
+    solve!(solver, problem, x_0, rng, kl_bound=kl_bound, verbose=false, serial=true);
     @test solver.iter_current == solver.iter_max
-    @test !isnan(θ_opt)
 
-    # mean_carry_over test
-    @test solver.μ_init_array == μ_init_array
-    @test solver.Σ_init_array == Σ_init_array
-    @test solver.μ_θ_init == 1.0
-    @test solver.σ_θ_init == 2.0
-
-
+    # kl_bound == 0.0 test
     solver = RATCEMSolver(μ_init_array, Σ_init_array,
-                          num_control_samples=100, deterministic_dynamics=false,
-                          num_trajectory_samples=20,
-                          μ_θ_init=1.0, σ_θ_init=2.0, num_risk_samples=20,
-                          num_elite=50, iter_max=5, smoothing_factor=0.1,
-                          mean_carry_over=true);
-    control_array, ~, θ_opt, ~ = solve!(solver, problem, x_init, rng, kl_bound=kl_bound, verbose=false);
-    @test solver.μ_init_array[1:end-1] == control_array[2:end]
-    @test solver.μ_init_array[end] == zeros(2)
-    @test solver.Σ_init_array == Σ_init_array
-    @test solver.μ_θ_init == θ_opt
-    @test solver.σ_θ_init == 2.0
-
-    # test the case of kl_bound == 0.0
-    solver = RATCEMSolver(μ_init_array, Σ_init_array,
-                          num_control_samples=100, deterministic_dynamics=false,
-                          num_trajectory_samples=20,
-                          μ_θ_init=1.0, σ_θ_init=2.0, num_risk_samples=20,
-                          num_elite=50, iter_max=5, smoothing_factor=0.1,
-                          mean_carry_over=true);
-    control_array_1, Σ_array_1, θ_opt, σ_θ =
-        solve!(solver, problem, x_init, MersenneTwister(1234), kl_bound=0.0, verbose=false);
-
-    @test θ_opt == 0.0
+                          num_control_samples=50, μ_θ_init=1.0, σ_θ_init=2.0, λ_θ=0.5,
+                          num_risk_samples=1, num_elite=30, iter_max=3,
+                          smoothing_factor=0.1, u_mean_carry_over=false,
+                          f_returns_jacobian=false);
+                          rng = MersenneTwister(1234)
+    μ_array, Σ_array_2, μ_θ, σ_θ, θ_min, θ_max =
+      solve!(solver, problem, x_0, rng, kl_bound=0.0, verbose=false, serial=true);
+    @test μ_θ == 0.0
     @test σ_θ == 0.0
-    @test solver.μ_init_array[1:end-1] == control_array_1[2:end]
-    @test solver.μ_init_array[end] == zeros(2)
-    @test solver.Σ_init_array == Σ_init_array
-    @test solver.μ_θ_init == 0.0
-    @test solver.σ_θ_init == 2.0
+    @test θ_min == 0.0
+    @test θ_max == 0.0
 
-    pets_solver = PETSSolver(μ_init_array, Σ_init_array,
-                             num_control_samples=100, deterministic_dynamics=false,
-                             num_trajectory_samples=20,
-                             num_elite=50, iter_max=5, smoothing_factor=0.1,
-                             mean_carry_over=true);
-    control_array_2, Σ_array_2 =
-        solve!(pets_solver, problem, x_init, MersenneTwister(1234), verbose=false);
-    @test control_array_1 == control_array_2
-    @test Σ_array_1 == Σ_array_2
+    # u_mean_carray_over test
+    solver = RATCEMSolver(μ_init_array, Σ_init_array,
+                          num_control_samples=50, μ_θ_init=1.0, σ_θ_init=2.0, λ_θ=0.5,
+                          num_risk_samples=10, num_elite=30, iter_max=3,
+                          smoothing_factor=0.1, u_mean_carry_over=true,
+                          f_returns_jacobian=false);
+
+    rng = MersenneTwister(1234)
+    μ_array, Σ_array_3, μ_θ, σ_θ, θ_min, θ_max = 
+    solve!(solver, problem, x_0, rng, kl_bound=kl_bound, verbose=false, serial=true);
+    @test solver.μ_init_array[1:end-1] == μ_array[2:end]
+    @test solver.μ_init_array[end] == [0.1, 0.1];
+    @test Σ_array_3 == Σ_array
 end
