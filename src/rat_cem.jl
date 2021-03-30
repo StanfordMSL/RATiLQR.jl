@@ -328,7 +328,11 @@ function compute_cost(solver::RATCEMSolver,
                                  θ_array[col])
         end
     end
-    cost_matrix = value_matrix .+ kl_bound./reshape(θ_array, 1, num_risk_samples);
+    if kl_bound > 0.0
+        cost_matrix = value_matrix .+ kl_bound./reshape(θ_array, 1, num_risk_samples);
+    else
+        cost_matrix = value_matrix
+    end
     return cost_matrix
 end
 
@@ -355,7 +359,11 @@ function compute_cost_serial(solver::RATCEMSolver,
             end
         end
     end
-    cost_matrix = value_matrix .+ kl_bound./reshape(θ_array, 1, solver.num_risk_samples);
+    if kl_bound > 0.0
+        cost_matrix = value_matrix .+ kl_bound./reshape(θ_array, 1, solver.num_risk_samples);
+    else
+        cost_matrix = value_matrix
+    end
     return cost_matrix
 end
 
