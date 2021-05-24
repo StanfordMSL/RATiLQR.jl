@@ -380,7 +380,7 @@ function get_elite_samples(solver::RATCEMSolver,
             if length(pq) < solver.num_elite
                 enqueue!(pq, (u_idx, θ_idx) => cost_matrix[u_idx, θ_idx])
             else
-                if cost_matrix[u_idx, θ_idx] < peek(pq)[2]
+                if cost_matrix[u_idx, θ_idx] < DataStructures.peek(pq)[2]
                     dequeue!(pq)
                     enqueue!(pq, (u_idx, θ_idx) => cost_matrix[u_idx, θ_idx])
                 end
@@ -388,7 +388,7 @@ function get_elite_samples(solver::RATCEMSolver,
         end
     end
     while !isempty(pq)
-        u_idx, θ_idx = peek(pq)[1];
+        u_idx, θ_idx = DataStructures.peek(pq)[1];
         push!(u_elite_idx_array, u_idx)
         push!(θ_elite_idx_array, θ_idx)
         dequeue!(pq);
