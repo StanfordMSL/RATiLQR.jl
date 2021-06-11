@@ -394,8 +394,9 @@ function solve_approximate_dp!(ileqg::ILEQGSolver, approx_result::ApproximationR
             end
         end
         if all_hessians_psd
+            decrease_μ_and_Δ!(ileqg)
             if verbose
-                println("------Approximate dynamic programming solved.")
+                println("------Approximate dynamic programming solved. Decreasing μ to $(ileqg.μ) and Δ to $(ileqg.Δ).")
             end
         end
     end
@@ -639,10 +640,11 @@ function solve!(ileqg::ILEQGSolver,
     initialize!(ileqg, problem, x_0, u_array, θ);
     while true
         step!(ileqg, problem, θ, verbose);
-        if ileqg.d > ileqg.d_current && ileqg.μ <= ileqg.μ_min
+        if ileqg.d > ileqg.d_current #&& ileqg.μ <= ileqg.μ_min
             if verbose
                 err_norm_str = @sprintf "%3.3f" ileqg.d_current
-                println("ILEQG Converged. d == $(err_norm_str)")
+                μ_str = @sprintf "%3.3f" ileqg.μ
+                println("ILEQG Converged. d == $(err_norm_str), μ == $(μ_str)")
             end
             break;
         elseif ileqg.iter_current == ileqg.iter_max
