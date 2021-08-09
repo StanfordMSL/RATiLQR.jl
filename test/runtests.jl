@@ -19,6 +19,8 @@ end
 include("ileqg_test.jl")
 @info "Executing RAT iLQR Test"
 include("rat_ilqr_test.jl")
+@info "Executing MPPI Test"
+include("mppi_test.jl")
 @info "Executing PETS Test"
 include("pets_test.jl")
 @info "Executing RAT CEM Test"

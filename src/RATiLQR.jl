@@ -54,6 +54,15 @@ export
     solve!
 include("rat_ilqr.jl")
 
+# MPPI (a.k.a. Planning with Deep Dynamics Models)
+export
+    MPPISolver,
+    initialize!,
+    update_mean!,
+    step!,
+    solver!
+include("mppi.jl")
+
 # PETS (Cross Entropy Method with Stochastic Sampling of Dynamics)
 export
     PETSSolver,

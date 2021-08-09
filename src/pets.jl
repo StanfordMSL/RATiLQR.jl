@@ -88,7 +88,7 @@ function initialize!(solver::PETSSolver)
     solver.Σ_array = copy(solver.Σ_init_array);
 end
 
-function compute_cost_worker(solver::PETSSolver,
+function compute_cost_worker(solver::Union{PETSSolver, MPPISolver},
                              problem::FiniteHorizonGenerativeProblem,
                              x::Vector{Float64}, #initial state
                              u_array::Vector{Vector{Float64}},
@@ -114,7 +114,7 @@ function compute_cost_worker(solver::PETSSolver,
      cost = mean(sampled_cost_array);
 end
 
-function compute_cost(solver::PETSSolver,
+function compute_cost(solver::Union{PETSSolver, MPPISolver},
                       problem::FiniteHorizonGenerativeProblem,
                       x::Vector{Float64}, #initial state
                       control_sequence_array::Vector{Vector{Vector{Float64}}},
@@ -142,7 +142,7 @@ function compute_cost(solver::PETSSolver,
     return cost_array
 end
 
-function compute_cost_serial(solver::PETSSolver,
+function compute_cost_serial(solver::Union{PETSSolver, MPPISolver},
                              problem::FiniteHorizonGenerativeProblem,
                              x::Vector{Float64}, #initial state
                              control_sequence_array::Vector{Vector{Vector{Float64}}},
@@ -225,7 +225,7 @@ function step!(solver::PETSSolver,
         println("****Drawing $(solver.num_control_samples) samples of control sequences of length $(solver.N)")
     end
     for ii = 1 : solver.num_control_samples # for-loop over action sequences
-        # sample and action sequence from current distribution;
+        # sample an action sequence from current distribution;
         control_sequence_array[ii] = Vector{Vector{Float64}}(undef, solver.N)
         for tt = 1 : solver.N # for-loop over time steps
             d = MvNormal(solver.μ_array[tt], solver.Σ_array[tt]);
